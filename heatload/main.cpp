@@ -45,3 +45,23 @@ void heatload()
     output();
 
 }
+
+void init()
+{
+
+}
+
+void load_data()
+{
+    
+}
+
+void heatload_calc()
+{
+    
+}
+
+void output()
+{
+    
+}
