@@ -60,30 +60,30 @@ void heatload() {
     while (1) {
         i++;
 
-        t_ParticlesList iptls;
-        t_ParticlesList eptls;
+        t_ParticlesList idiv;
+        t_ParticlesList ediv;
+        t_ParticlesList iesc;
+        t_ParticlesList eesc;
 
-        adios2::StepStatus status = load_data(iptls, eptls);
+        adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
         if (status != adios2::StepStatus::OK)
             break;
 
         std::cout << ">>> Step: " << i << std::endl;
-        std::cout << "Num. of ions: " << iptls.size() << std::endl;
-        std::cout << "Num. of eons: " << eptls.size() << std::endl;
+        std::cout << "Num. of escaped ions: " << iesc.size() << std::endl;
+        std::cout << "Num. of escaped elec: " << eesc.size() << std::endl;
+        std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
+        std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
 
-        // print first 10 particle
+        // print first 10 esc particles
         for (int i = 0; i < 10; i++) {
-            printf("iptl gid, rzphi, flag: %ld %f %f %f %d\n", iptls[i].gid, iptls[i].ph.r, iptls[i].ph.z, iptls[i].ph.phi, iptls[i].flag);
+            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", iesc[i].gid, iesc[i].ph.r, iesc[i].ph.z, iesc[i].ph.phi, iesc[i].flag);
         }
 
-        std::vector<Particles> idiv;
-        std::vector<Particles> ediv;
-        std::vector<Particles> iesc;
-        std::vector<Particles> eesc;
+
 
         // separate divertor particles and escaped particles
-        separate(igid,iflag,idw,iphase, idiv, iesc);
-        separate(egid,eflag,edw,ephase, ediv, eesc);
+
 
         // store escaped particles to DB
 

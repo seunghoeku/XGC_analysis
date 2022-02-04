@@ -4,6 +4,8 @@
 #include <string>
 
 #include "load.hpp"
+#include "flags.hpp"
+#include "sml.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
@@ -22,11 +24,14 @@ void load_finalize()
     reader.Close();
 }
 
-adios2::StepStatus load_data(t_ParticlesList &iptls, t_ParticlesList &eptls)
+adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, 
+                            t_ParticlesList &iesc, t_ParticlesList &eesc)
 {
     // Clear vector
-    iptls.clear();
-    eptls.clear();
+    idiv.clear();
+    ediv.clear();
+    iesc.clear();
+    eesc.clear();
 
     adios2::StepStatus status = reader.BeginStep();
     if (status == adios2::StepStatus::OK)
@@ -87,7 +92,20 @@ adios2::StepStatus load_data(t_ParticlesList &iptls, t_ParticlesList &eptls)
             iptl.ph.mu = GET(iphase, i, 6);
             iptl.ph.w0 = GET(iphase, i, 7);
             iptl.ph.f0 = GET(iphase, i, 8);
-            iptls.push_back(iptl);
+
+            int flag1 ; // tmp flag     
+            flag1 = iflag[i];
+
+            Flags fl(flag1); // decode flags
+
+            // save to div or esc
+            if(fl.escaped) {
+                // add to esc
+                iesc.push_back(iptl);
+            } else {
+                // add to div
+                idiv.push_back(iptl);
+            }   
         }
 
         for (int i = 0; i < egid.size(); i++)
@@ -104,7 +122,20 @@ adios2::StepStatus load_data(t_ParticlesList &iptls, t_ParticlesList &eptls)
             eptl.ph.mu = GET(ephase, i, 6);
             eptl.ph.w0 = GET(ephase, i, 7);
             eptl.ph.f0 = GET(ephase, i, 8);
-            eptls.push_back(eptl);
+
+            int flag1 ; // tmp flag     
+            flag1 = eflag[i];
+
+            Flags fl(flag1); // decode flags
+
+            // save to div or esc
+            if(fl.escaped) {
+                // add to esc
+                eesc.push_back(eptl);
+            } else {
+                // add to div
+                ediv.push_back(eptl);
+            }   
         }
     }
 
