@@ -21,7 +21,8 @@ class Particles {
 
     Phase ph;
     long long int gid;
-    long long int flag;
+    int flag;
+    int esc_step;
 
 };
 

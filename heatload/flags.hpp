@@ -5,13 +5,13 @@ class Flags
 {
 //private:
 public:
-    static const long long int is_to_write =1;   // need to write
-    static const long long int is_in_init  =2;   // inside of separatrix initially -- Not used here
-    static const long long int is_written  =4;   // inside of separatrix before push -- Not used here
-    static const long long int is_escaped  =8;   // why write (is_to_write=on)- just escaped from separatrix
-    static const long long int is_divertor =16;  // why write - just hit the divertor
-    static const long long int is_outboard =32;  // when write - is this outboard?
-    static const long long int was_inside  =64;  // aux flag to indicate if the particle was inside before push
+    static const int is_to_write =1;   // need to write
+    static const int is_in_init  =2;   // inside of separatrix initially -- Not used here
+    static const int is_written  =4;   // inside of separatrix before push -- Not used here
+    static const int is_escaped  =8;   // why write (is_to_write=on)- just escaped from separatrix
+    static const int is_divertor =16;  // why write - just hit the divertor
+    static const int is_outboard =32;  // when write - is this outboard?
+    static const int was_inside  =64;  // aux flag to indicate if the particle was inside before push
 
     // actual data
     bool to_write;
@@ -22,11 +22,11 @@ public:
     bool outboard;
     bool inside;
 
-    Flags(long long int);
+    Flags(int);
     ~Flags();
 };
 
-inline Flags::Flags(long long int flag_in)
+inline Flags::Flags(int flag_in)
 {
     to_write = (flag_in & is_to_write) >0;
     in_init  = (flag_in & is_in_init) >0;
