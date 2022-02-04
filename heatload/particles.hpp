@@ -13,6 +13,7 @@ struct Phase{
     double w0;
     double f0;
     double B;
+    double psi;
 };
 
 //particle data strcuture 

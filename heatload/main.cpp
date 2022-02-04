@@ -6,11 +6,12 @@
 #include "adios2.h"
 #include "particles.hpp"
 #include "flags.hpp"
+#include "sml.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
 void heatload();
-void init(); // initialization
+void init(Simulation& sml); // initialization
 // receving data from XGC1
 void load_data(adios2::IO reader_io, adios2::Engine reader,
                std::vector<long> &igid, std::vector<float> &iphase,
@@ -45,7 +46,11 @@ int main(int argc, char *argv[]) {
 }
 
 void heatload() {
-  init();
+  
+  Simulation sml;
+
+  // init simulation parameters
+  init(sml);
 
   // init adios
   adios2::ADIOS ad;
@@ -95,6 +100,5 @@ void heatload() {
   output();
 }
 
-void init() {}
 
 void output() {}
