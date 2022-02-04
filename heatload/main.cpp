@@ -84,21 +84,22 @@ void heatload() {
       printf("Particle gid, rzphi: %ld %f %f %f\n", igid[i], GET(iphase, i, 0),
              GET(iphase, i, 1), GET(iphase, i, 2));
     }
+
+    std::vector<Particles> idiv;
+    std::vector<Particles> ediv;
+    std::vector<Particles> iesc;
+    std::vector<Particles> eesc;
+
+    // separate divertor particles and escaped particles
+
+    // store escaped particles to DB
+
+    // Calculate heatload from divertor particles
+    heatload_calc(idiv, ediv); // need to send DB
+
+    output();
   }
 
-  std::vector<Particles> idiv;
-  std::vector<Particles> ediv;
-  std::vector<Particles> iesc;
-  std::vector<Particles> eesc;
-
-  // separate divertor particles and escaped particles
-
-  // store escaped particles to DB
-
-  // Calculate heatload from divertor particles
-  heatload_calc(idiv, ediv); // need to send DB
-
-  output();
   load_finalize();
 }
 
