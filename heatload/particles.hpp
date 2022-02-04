@@ -17,7 +17,7 @@ struct Phase{
 };
 
 //particle data strcuture 
-class Particles {
+struct Particles {
 
     Phase ph;
     long long int gid;
@@ -25,6 +25,8 @@ class Particles {
     int esc_step;
 
 };
+
+typedef std::vector<Particles> t_ParticlesList;
 
 //#include "particles.tpp"
 #endif
