@@ -4,20 +4,18 @@
 #include <string>
 
 #include "adios2.h"
-#include "particles.hpp"
 #include "flags.hpp"
+#include "load.hpp"
+#include "particles.hpp"
 #include "sml.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
 void heatload();
-void init(Simulation& sml); // initialization
-// receving data from XGC1
-void load_data(adios2::IO reader_io, adios2::Engine reader,
-               std::vector<long> &igid, std::vector<float> &iphase,
-               std::vector<long> &egid, std::vector<float> &ephase);
-void heatload_calc(std::vector<Particles> idiv, std::vector<Particles> ediv); // calculate heatload
-void output();        // output graphs or data for graphs
+void init(Simulation &sml); // initialization
+void heatload_calc(std::vector<Particles> idiv,
+                   std::vector<Particles> ediv); // calculate heatload
+void output(); // output graphs or data for graphs
 
 // extern "C" void set_test_type(int test_type);
 
@@ -46,31 +44,35 @@ int main(int argc, char *argv[]) {
 }
 
 void heatload() {
-  
+
   Simulation sml;
 
   // init simulation parameters
   init(sml);
 
   // init adios
-  adios2::ADIOS ad;
-  adios2::IO reader_io = ad.DeclareIO("headload");
-  adios2::Engine reader =
-      reader_io.Open("xgc.escaped_ptls.su455.bp", adios2::Mode::Read);
+  load_init("xgc.escaped_ptls.su455.bp");
+  // adios2::ADIOS ad;
+  // adios2::IO reader_io = ad.DeclareIO("headload");
+  // adios2::Engine reader =
+  //     reader_io.Open("xgc.escaped_ptls.su455.bp", adios2::Mode::Read);
   std::vector<long> igid;
   std::vector<long> egid;
+  std::vector<int> iflag;
+  std::vector<int> eflag;
+  std::vector<float> idw;
+  std::vector<float> edw;
   std::vector<float> iphase;
   std::vector<float> ephase;
 
   int i = 0;
   while (1) {
-    adios2::StepStatus status = reader.BeginStep();
+    i++;
+    adios2::StepStatus status =
+        load_data(igid, iflag, idw, iphase, egid, eflag, edw, ephase);
     if (status != adios2::StepStatus::OK)
       break;
-    std::cout << ">>> Step:" << i << std::endl;
-    load_data(reader_io, reader, igid, iphase, egid, ephase);
-    reader.EndStep();
-    i++;
+    std::cout << ">>> Step: " << i << std::endl;
 
     std::cout << "Num. of ions: " << igid.size() << std::endl;
     std::cout << "Num. of eons: " << egid.size() << std::endl;
@@ -83,22 +85,21 @@ void heatload() {
              GET(iphase, i, 1), GET(iphase, i, 2));
     }
   }
-  reader.Close();
 
   std::vector<Particles> idiv;
   std::vector<Particles> ediv;
   std::vector<Particles> iesc;
   std::vector<Particles> eesc;
 
-  //separate divertor particles and escaped particles
+  // separate divertor particles and escaped particles
 
   // store escaped particles to DB
 
-  // Calculate heatload from divertor particles 
-  heatload_calc(idiv,ediv); // need to send DB
+  // Calculate heatload from divertor particles
+  heatload_calc(idiv, ediv); // need to send DB
 
   output();
+  load_finalize();
 }
-
 
 void output() {}
