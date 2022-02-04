@@ -3,14 +3,20 @@
 #include "particles.hpp"
 #include "flags.hpp"
 #include "sml.hpp"
+#include "heatload.hpp"
 
-using namespace std;
 extern Simulation sml;
 
-void heatload_calc(vector<Particles> idiv) {
+// get heatload of single species
+void heatload_calc(const t_ParticlesList &div, const HeatLoad &flux) {
     
-    // for each species
 
+    //inner or outer
+    for(int side=0; side <2; side++) {
+        //check bounding box
+
+
+    }
 
 
 }

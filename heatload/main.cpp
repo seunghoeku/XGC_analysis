@@ -80,11 +80,6 @@ void heatload() {
             printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", iesc[i].gid, iesc[i].ph.r, iesc[i].ph.z, iesc[i].ph.phi, iesc[i].flag);
         }
 
-
-
-        // separate divertor particles and escaped particles
-
-
         // store escaped particles to DB
 
         // Calculate heatload from divertor particles
