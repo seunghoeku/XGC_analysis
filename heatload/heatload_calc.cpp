@@ -7,7 +7,7 @@
 using namespace std;
 extern Simulation sml;
 
-void heatload_calc(vector<Particles> idiv) {
+void heatload_calc(t_ParticlesList idiv) {
     
     // for each species
 

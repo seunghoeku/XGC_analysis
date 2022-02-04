@@ -2,6 +2,7 @@
 #define PARTICLES_HPP
 
 #include <assert.h>
+#include <map>
 #include <vector>
 
 // Phase + ct + B data structure from XGC
@@ -24,12 +25,12 @@ struct Phase
 struct Particles
 {
     Phase ph;
-    long long int gid;
+    long long gid;
     int flag;
     int esc_step;
 };
 
-typedef std::vector<Particles> t_ParticlesList;
+typedef std::map<long long, Particles> t_ParticlesList;
 typedef std::vector<t_ParticlesList> t_ParticleDB;
 
 Particles search(t_ParticleDB &db, int timestep, long long int gid);
