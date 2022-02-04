@@ -15,6 +15,8 @@ void heatload();
 void init(); // initialization
 void heatload_calc(std::vector<Particles> ediv ); // calculate heatload
 void output(); // output graphs or data for graphs
+void separate(    std::vector<long> igid, std::vector<int> iflag, std::vector<float> idw, 
+    std::vector<float> iphase,  std::vector<Particles> idiv,  std::vector<Particles> esc);
 
 // extern "C" void set_test_type(int test_type);
 
@@ -91,6 +93,8 @@ void heatload() {
         std::vector<Particles> eesc;
 
         // separate divertor particles and escaped particles
+        separate(igid,iflag,idw,iphase, idiv, iesc);
+        separate(egid,eflag,edw,ephase, ediv, eesc);
 
         // store escaped particles to DB
 
