@@ -56,6 +56,8 @@ void heatload() {
     // init adios
     load_init("xgc.escaped_ptls.su455.bp");
 
+    t_ParticleDB iesc_db; 
+
     int i = 0;
     while (1) {
         i++;
@@ -81,9 +83,10 @@ void heatload() {
         }
 
 
-
         // separate divertor particles and escaped particles
-
+        iesc_db.push_back(iesc);
+        Particles ptl = search(iesc_db, i-1, 15824414);
+        printf ("Found or not? gid=%ld\n", ptl.gid);
 
         // store escaped particles to DB
 
