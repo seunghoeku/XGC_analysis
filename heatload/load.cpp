@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "adios2.h"
+#include "load.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
@@ -22,19 +22,15 @@ void load_finalize()
     reader.Close();
 }
 
-adios2::StepStatus load_data(std::vector<long> &igid, std::vector<int> &iflag, std::vector<float> &idw,
-                             std::vector<float> &iphase, std::vector<long> &egid, std::vector<int> &eflag,
-                             std::vector<float> &edw, std::vector<float> &ephase)
+adios2::StepStatus load_data(t_ParticlesList &iptls, t_ParticlesList &eptls)
 {
+    // Clear vector
+    iptls.clear();
+    eptls.clear();
+
     adios2::StepStatus status = reader.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
-        // Clear vector
-        igid.clear();
-        egid.clear();
-        iphase.clear();
-        ephase.clear();
-
         // Inquire variables
         auto var_igid = reader_io.InquireVariable<long>("igid");
         auto var_egid = reader_io.InquireVariable<long>("egid");
@@ -54,6 +50,15 @@ adios2::StepStatus load_data(std::vector<long> &igid, std::vector<int> &iflag, s
         var_iphase.SetSelection({{0, 0}, {var_iphase.Shape()[0], var_iphase.Shape()[1]}});
         var_ephase.SetSelection({{0, 0}, {var_ephase.Shape()[0], var_ephase.Shape()[1]}});
 
+        std::vector<long> igid;
+        std::vector<long> egid;
+        std::vector<int> iflag;
+        std::vector<int> eflag;
+        std::vector<float> idw;
+        std::vector<float> edw;
+        std::vector<float> iphase;
+        std::vector<float> ephase;
+
         reader.Get<long>(var_igid, igid);
         reader.Get<long>(var_egid, egid);
         reader.Get<int>(var_iflag, iflag);
@@ -63,6 +68,44 @@ adios2::StepStatus load_data(std::vector<long> &igid, std::vector<int> &iflag, s
         reader.Get<float>(var_iphase, iphase);
         reader.Get<float>(var_ephase, ephase);
         reader.EndStep();
+
+        assert(iphase.size() / igid.size() == 9);
+        assert(ephase.size() / egid.size() == 9);
+
+        // populate particles
+        for (int i = 0; i < igid.size(); i++)
+        {
+            Particles iptl;
+            iptl.gid = igid[i];
+            iptl.flag = iflag[i];
+            iptl.ph.r = GET(iphase, i, 0);
+            iptl.ph.z = GET(iphase, i, 1);
+            iptl.ph.phi = GET(iphase, i, 2);
+            iptl.ph.rho = GET(iphase, i, 3);
+            iptl.ph.w1 = GET(iphase, i, 4);
+            iptl.ph.w2 = GET(iphase, i, 5);
+            iptl.ph.mu = GET(iphase, i, 6);
+            iptl.ph.w0 = GET(iphase, i, 7);
+            iptl.ph.f0 = GET(iphase, i, 8);
+            iptls.push_back(iptl);
+        }
+
+        for (int i = 0; i < egid.size(); i++)
+        {
+            Particles eptl;
+            eptl.gid = egid[i];
+            eptl.flag = eflag[i];
+            eptl.ph.r = GET(ephase, i, 0);
+            eptl.ph.z = GET(ephase, i, 1);
+            eptl.ph.phi = GET(ephase, i, 2);
+            eptl.ph.rho = GET(ephase, i, 3);
+            eptl.ph.w1 = GET(ephase, i, 4);
+            eptl.ph.w2 = GET(ephase, i, 5);
+            eptl.ph.mu = GET(ephase, i, 6);
+            eptl.ph.w0 = GET(ephase, i, 7);
+            eptl.ph.f0 = GET(ephase, i, 8);
+            eptls.push_back(eptl);
+        }
     }
 
     return status;

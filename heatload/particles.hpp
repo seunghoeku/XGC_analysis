@@ -17,13 +17,15 @@ struct Phase{
 };
 
 //particle data strcuture 
-class Particles {
+struct Particles {
 
     Phase ph;
     long long int gid;
     long long int flag;
 
 };
+
+typedef std::vector<Particles> t_ParticlesList;
 
 //#include "particles.tpp"
 #endif
