@@ -1,5 +1,7 @@
 #include "sml.hpp"
 
-void init(Simulation& ) {
+extern Simulation sml;
+
+void init() {
   
 }

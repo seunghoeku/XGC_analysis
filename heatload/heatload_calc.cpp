@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void heatload_calc(vector<Particles> idiv, vector<Particles> ediv) {
+void heatload_calc(vector<Particles> idiv) {
     
     // for each species
 

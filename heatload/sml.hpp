@@ -9,7 +9,8 @@ class Simulation {
 
     // Input parameters
     double psix;
-
+    int npsi, ncond;
+    
     Simulation();
 };
 
