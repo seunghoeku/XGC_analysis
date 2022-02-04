@@ -1,4 +1,9 @@
 find_package(ADIOS2 2.7.1 REQUIRED COMPONENTS CXX)
 
-add_executable (heatload main.cpp)
+set(SOURCES
+    main.cpp
+    load.cpp
+    heatload_calc.cpp
+)
+add_executable (heatload ${SOURCES})
 target_link_libraries(heatload adios2::adios2)
