@@ -30,11 +30,11 @@ struct Particle
     int esc_step;
 };
 
-typedef std::vector<Particle> Particles;
+typedef std::vector<struct Particle> Particles;
 typedef std::map<long long, Particle> t_ParticlesList;
 typedef std::vector<t_ParticlesList> t_ParticleDB;
 
-Particles search(t_ParticleDB &db, int timestep, long long int gid);
+Particle search(t_ParticleDB &db, int timestep, long long int gid);
 
 //#include "particles.tpp"
 #endif

@@ -23,7 +23,7 @@ void load_finalize()
     reader.Close();
 }
 
-adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
+adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
 {
     // Clear vector
     idiv.clear();
@@ -78,7 +78,7 @@ adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, t_Par
         // populate particles
         for (int i = 0; i < igid.size(); i++)
         {
-            Particles iptl;
+            struct Particle iptl;
             iptl.gid = igid[i];
             iptl.flag = iflag[i];
             iptl.ph.r = GET(iphase, i, 0);
@@ -100,18 +100,18 @@ adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, t_Par
             if (fl.escaped)
             {
                 // add to esc
-                iesc.insert(std::pair<long long, Particles>(iptl.gid, iptl));
+                iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
             }
             else
             {
                 // add to div
-                idiv.insert(std::pair<long long, Particles>(iptl.gid, iptl));
+                idiv.push_back(iptl);
             }
         }
 
         for (int i = 0; i < egid.size(); i++)
         {
-            Particles eptl;
+            struct Particle eptl;
             eptl.gid = egid[i];
             eptl.flag = eflag[i];
             eptl.ph.r = GET(ephase, i, 0);
@@ -133,12 +133,12 @@ adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, t_Par
             if (fl.escaped)
             {
                 // add to esc
-                eesc.insert(std::pair<long long, Particles>(eptl.gid, eptl));
+                eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
             }
             else
             {
                 // add to div
-                ediv.insert(std::pair<long long, Particles>(eptl.gid, eptl));
+                ediv.push_back(eptl);
             }
         }
     }

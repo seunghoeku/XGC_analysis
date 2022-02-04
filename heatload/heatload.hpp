@@ -13,14 +13,14 @@ class Conditions{
 public:
     bool b[N_COND];
     Conditions();
-    Conditions(struct Particles ptl);
+    Conditions(struct Particle ptl);
 };
 
 inline Conditions::Conditions(){
     // empty constructor
 }
 
-inline Conditions::Conditions(struct Particles ptl){
+inline Conditions::Conditions(struct Particle ptl){
 
     // get conditions
     Flags fl(ptl.flag);

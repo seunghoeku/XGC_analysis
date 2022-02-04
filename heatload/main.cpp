@@ -14,10 +14,9 @@
 
 void heatload();
 void init(); // initialization
-void heatload_calc(t_ParticlesList ediv ); // calculate heatload
+void heatload_calc(Particles &div); // calculate heatload
 void output(); // output graphs or data for graphs
-void separate(    std::vector<long> igid, std::vector<int> iflag, std::vector<float> idw, 
-    std::vector<float> iphase,  std::vector<Particles> idiv,  std::vector<Particles> esc);
+
 
 // extern "C" void set_test_type(int test_type);
 
@@ -62,8 +61,8 @@ void heatload() {
     while (1) {
         i++;
 
-        t_ParticlesList idiv;
-        t_ParticlesList ediv;
+        Particles idiv;
+        Particles ediv;
         t_ParticlesList iesc;
         t_ParticlesList eesc;
 
@@ -79,7 +78,7 @@ void heatload() {
 
         // print first 10 esc particles
         int count = 0;
-        std::map<long long, Particles>::iterator it;
+        std::map<long long, Particle>::iterator it;
         for (it = iesc.begin(); it != iesc.end(); it++) {
             printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.ph.r, it->second.ph.z, it->second.ph.phi, it->second.flag);
             count++;

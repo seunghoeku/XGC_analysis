@@ -1,10 +1,10 @@
 #include "particles.hpp"
 
-Particles search(t_ParticleDB &db, int timestep, long long gid)
+Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
     assert(timestep < db.size());
 
-    Particles nullptl;
+    Particle nullptl;
     nullptl.gid = -1;
 
     t_ParticlesList ptls = db[timestep];
