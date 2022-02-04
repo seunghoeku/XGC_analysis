@@ -6,6 +6,8 @@ set(SOURCES
     heatload_calc.cpp
     initialize.cpp
     separate.cpp
+    particles.cpp
 )
+
 add_executable (heatload ${SOURCES})
 target_link_libraries(heatload adios2::adios2)

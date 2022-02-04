@@ -8,7 +8,7 @@
 extern Simulation sml;
 
 // get heatload of single species
-void heatload_calc(const t_ParticlesList &div, const HeatLoad &flux) {
+void heatload_calc(const Particles &div, const HeatLoad &flux) {
     
 
     //inner or outer

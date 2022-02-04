@@ -14,7 +14,7 @@
 
 void heatload();
 void init(); // initialization
-void heatload_calc(std::vector<Particles> ediv ); // calculate heatload
+void heatload_calc(t_ParticlesList ediv ); // calculate heatload
 void output(); // output graphs or data for graphs
 void separate(    std::vector<long> igid, std::vector<int> iflag, std::vector<float> idw, 
     std::vector<float> iphase,  std::vector<Particles> idiv,  std::vector<Particles> esc);
@@ -56,6 +56,8 @@ void heatload() {
     // init adios
     load_init("xgc.escaped_ptls.su455.bp");
 
+    t_ParticleDB iesc_db; 
+
     int i = 0;
     while (1) {
         i++;
@@ -76,9 +78,19 @@ void heatload() {
         std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
 
         // print first 10 esc particles
-        for (int i = 0; i < 10; i++) {
-            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", iesc[i].gid, iesc[i].ph.r, iesc[i].ph.z, iesc[i].ph.phi, iesc[i].flag);
+        int count = 0;
+        std::map<long long, Particles>::iterator it;
+        for (it = iesc.begin(); it != iesc.end(); it++) {
+            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.ph.r, it->second.ph.z, it->second.ph.phi, it->second.flag);
+            count++;
+            if (count>10) break;
         }
+
+
+        // separate divertor particles and escaped particles
+        iesc_db.push_back(iesc);
+        Particle ptl = search(iesc_db, i-1, 15824414);
+        printf ("Found or not? gid=%lld\n", ptl.gid);
 
         // store escaped particles to DB
 

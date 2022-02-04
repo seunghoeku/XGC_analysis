@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "load.hpp"
 #include "flags.hpp"
+#include "load.hpp"
 #include "sml.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
@@ -23,8 +23,7 @@ void load_finalize()
     reader.Close();
 }
 
-adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, 
-                            t_ParticlesList &iesc, t_ParticlesList &eesc)
+adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
 {
     // Clear vector
     idiv.clear();
@@ -92,19 +91,22 @@ adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv,
             iptl.ph.w0 = GET(iphase, i, 7);
             iptl.ph.f0 = GET(iphase, i, 8);
 
-            int flag1 ; // tmp flag     
+            int flag1; // tmp flag
             flag1 = iflag[i];
 
             Flags fl(flag1); // decode flags
 
             // save to div or esc
-            if(fl.escaped) {
+            if (fl.escaped)
+            {
                 // add to esc
-                iesc.push_back(iptl);
-            } else {
+                iesc.insert(std::pair<long long, Particles>(iptl.gid, iptl));
+            }
+            else
+            {
                 // add to div
-                idiv.push_back(iptl);
-            }   
+                idiv.insert(std::pair<long long, Particles>(iptl.gid, iptl));
+            }
         }
 
         for (int i = 0; i < egid.size(); i++)
@@ -122,19 +124,22 @@ adios2::StepStatus load_data(t_ParticlesList &idiv, t_ParticlesList &ediv,
             eptl.ph.w0 = GET(ephase, i, 7);
             eptl.ph.f0 = GET(ephase, i, 8);
 
-            int flag1 ; // tmp flag     
+            int flag1; // tmp flag
             flag1 = eflag[i];
 
             Flags fl(flag1); // decode flags
 
             // save to div or esc
-            if(fl.escaped) {
+            if (fl.escaped)
+            {
                 // add to esc
-                eesc.push_back(eptl);
-            } else {
+                eesc.insert(std::pair<long long, Particles>(eptl.gid, eptl));
+            }
+            else
+            {
                 // add to div
-                ediv.push_back(eptl);
-            }   
+                ediv.insert(std::pair<long long, Particles>(eptl.gid, eptl));
+            }
         }
     }
 
