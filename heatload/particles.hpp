@@ -16,10 +16,12 @@ struct Phase{
 };
 
 //particle data strcuture 
-struct Particles{
+class Particles {
+
     Phase ph;
     long long int gid;
     long long int flag;
+
 };
 
 //#include "particles.tpp"

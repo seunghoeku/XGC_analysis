@@ -1,7 +1,7 @@
 #ifndef FLAGS_HPP
 #define FLAGS_HPP
 
-class flags 
+class Flags 
 {
 //private:
 public:
@@ -22,11 +22,11 @@ public:
     bool outboard;
     bool inside;
 
-    flags(long long int);
-    ~flags();
+    Flags(long long int);
+    ~Flags();
 };
 
-flags::flags(long long int flag_in)
+inline Flags::Flags(long long int flag_in)
 {
     to_write = (flag_in & is_to_write) >0;
     in_init  = (flag_in & is_in_init) >0;
@@ -36,7 +36,7 @@ flags::flags(long long int flag_in)
     inside   = (flag_in & was_inside) >0;
 }
 
-flags::~flags()
+inline Flags::~Flags()
 {
 }
 

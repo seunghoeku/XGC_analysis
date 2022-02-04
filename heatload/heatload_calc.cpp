@@ -1,7 +1,14 @@
+#include <vector>
+
 #include "particles.hpp"
 #include "flags.hpp"
 
-void heatload_calc() {
-    // receive  
+using namespace std;
+
+void heatload_calc(vector<Particles> idiv, vector<Particles> ediv) {
+    
+    // for each species
+
+
 
 }

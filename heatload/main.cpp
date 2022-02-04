@@ -4,6 +4,8 @@
 #include <string>
 
 #include "adios2.h"
+#include "particles.hpp"
+#include "flags.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
@@ -13,7 +15,7 @@ void init(); // initialization
 void load_data(adios2::IO reader_io, adios2::Engine reader,
                std::vector<long> &igid, std::vector<float> &iphase,
                std::vector<long> &egid, std::vector<float> &ephase);
-void heatload_calc(); // calculate heatload
+void heatload_calc(std::vector<Particles> idiv, std::vector<Particles> ediv); // calculate heatload
 void output();        // output graphs or data for graphs
 
 // extern "C" void set_test_type(int test_type);
@@ -78,7 +80,17 @@ void heatload() {
   }
   reader.Close();
 
-  heatload_calc();
+  std::vector<Particles> idiv;
+  std::vector<Particles> ediv;
+  std::vector<Particles> iesc;
+  std::vector<Particles> eesc;
+
+  //separate divertor particles and escaped particles
+
+  // store escaped particles to DB
+
+  // Calculate heatload from divertor particles 
+  heatload_calc(idiv,ediv); // need to send DB
 
   output();
 }
