@@ -1,6 +1,6 @@
 #include "particles.hpp"
 
-Particles search(t_ParticleDB &db, int timestep, long long int gid)
+Particles search(t_ParticleDB &db, int timestep, long long gid)
 {
     assert(timestep < db.size());
 
@@ -9,11 +9,8 @@ Particles search(t_ParticleDB &db, int timestep, long long int gid)
 
     t_ParticlesList ptls = db[timestep];
 
-    for (int i = 0; i < ptls.size(); i++)
-    {
-        if (ptls[i].gid == gid)
-            return ptls[i];
-    }
-
-    return nullptl;
+    if (ptls.find(gid) != ptls.end())
+        return ptls[gid];
+    else
+        return nullptl;
 }
