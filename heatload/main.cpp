@@ -9,12 +9,13 @@
 #include "particles.hpp"
 #include "sml.hpp"
 #include "particles.hpp"
+#include "heatload.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
 void heatload();
 void init(); // initialization
-void heatload_calc(Particles &div); // calculate heatload
+void heatload_calc(const Particles &div, const HeatLoad &sp); // calculate heatload
 void output(); // output graphs or data for graphs
 
 
@@ -94,11 +95,11 @@ void heatload() {
         // store escaped particles to DB
 
         // Calculate heatload from divertor particles
-        double iheat[sml.ncond][sml.npsi];
-        double eheat[sml.ncond][sml.npsi];
+        HeatLoad ion;
+        HeatLoad elec;
 
-        heatload_calc(idiv); // need to send DB
-        heatload_calc(ediv);
+        heatload_calc(idiv, ion); // need to send DB
+        heatload_calc(ediv, elec);
         output();
     }
 

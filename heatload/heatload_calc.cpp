@@ -8,13 +8,13 @@
 extern Simulation sml;
 
 // get heatload of single species
-void heatload_calc(const Particles &div, const HeatLoad &flux) {
+void heatload_calc(const Particles &div, const HeatLoad &sp) {
     
 
     //inner or outer
     for(int side=0; side <2; side++) {
         //check bounding box
-
+    
 
     }
 
