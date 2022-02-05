@@ -6,17 +6,19 @@
 #include "heatload.hpp"
 
 extern Simulation sml;
+extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 
 // get heatload of single species
-void heatload_calc(const Particles &div, HeatLoad &sp) {
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
     
     for(int i=0; i<div.size(); i++) {
 
-        struct Particle p = div[i];
+        struct Particle p = div[i]; // particle that hit divertor
         double en = sml.c2_2m * p.rho * p.rho * p.B * p.B + p.mu*p.B;
         double wp = p.dw * p.w0;
 
-        Conditions cond(p);
+        struct Particle p_esc = search(db, p.esc_step, p.gid); // particle info when it escaped.
+        Conditions cond(p_esc); // get conditions from particle info when escaped.
 
         //check inner or outer
         for(int side=0; side <2; side++) {

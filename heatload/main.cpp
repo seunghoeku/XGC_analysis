@@ -15,7 +15,7 @@
 
 void heatload();
 void init(); // initialization
-void heatload_calc(const Particles &div, HeatLoad &sp); // calculate heatload
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 void output(); // output graphs or data for graphs
 
 
@@ -57,6 +57,7 @@ void heatload() {
     load_init("xgc.escaped_ptls.su455.bp");
 
     t_ParticleDB iesc_db; 
+    t_ParticleDB eesc_db; 
 
     int i = 0;
     while (1) {
@@ -89,6 +90,7 @@ void heatload() {
 
         // separate divertor particles and escaped particles
         iesc_db.push_back(iesc);
+        iesc_db.push_back(eesc);
         Particle ptl = search(iesc_db, i-1, 15824414);
         printf ("Found or not? gid=%lld\n", ptl.gid);
 
@@ -98,8 +100,8 @@ void heatload() {
         HeatLoad ion;
         HeatLoad elec;
 
-        heatload_calc(idiv, ion); // need to send DB
-        heatload_calc(ediv, elec);
+        heatload_calc(idiv, ion,  iesc_db); // need to send DB
+        heatload_calc(ediv, elec, eesc_db);
         output();
     }
 
