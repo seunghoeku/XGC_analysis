@@ -5,6 +5,7 @@
 #include "particles.hpp"
 #include "flags.hpp"
 
+#define N_SIDE 2
 #define N_COND 2
 #define N_PSI 1000
 
@@ -38,13 +39,13 @@ inline Conditions::Conditions(struct Particle ptl){
 //class for heatload
 class HeatLoad1{
 public:
-    double en[N_PSI];
-    double ptl[N_PSI];    
+    double  en[N_COND][N_PSI];
+    double ptl[N_COND][N_PSI];    
 };
 
 class HeatLoad{
 public:
-    HeatLoad1 flux[N_COND];
+    HeatLoad1 side[N_SIDE];
 };
 
 #endif

@@ -11,6 +11,12 @@ class Simulation {
     double psix;
     int npsi, ncond;
     
+    double rmin[2], rmax[2], zmin[2], zmax[2];
+    double pmin[2];
+    double dpsi[2];
+
+    double c2_2m;
+    
     Simulation();
 };
 

@@ -5,8 +5,8 @@
 #include <map>
 #include <vector>
 
-// Phase + ct + B data structure from XGC
-struct Phase
+// particle data strcuture
+struct Particle
 {
     double r;
     double z;
@@ -19,12 +19,7 @@ struct Phase
     double f0;
     double B;
     double psi;
-};
-
-// particle data strcuture
-struct Particle
-{
-    Phase ph;
+    float dw;
     long long gid;
     int flag;
     int esc_step;

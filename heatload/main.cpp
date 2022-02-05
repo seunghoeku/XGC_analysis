@@ -15,7 +15,7 @@
 
 void heatload();
 void init(); // initialization
-void heatload_calc(const Particles &div, const HeatLoad &sp); // calculate heatload
+void heatload_calc(const Particles &div, HeatLoad &sp); // calculate heatload
 void output(); // output graphs or data for graphs
 
 
@@ -81,7 +81,7 @@ void heatload() {
         int count = 0;
         std::map<long long, Particle>::iterator it;
         for (it = iesc.begin(); it != iesc.end(); it++) {
-            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.ph.r, it->second.ph.z, it->second.ph.phi, it->second.flag);
+            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z, it->second.phi, it->second.flag);
             count++;
             if (count>10) break;
         }

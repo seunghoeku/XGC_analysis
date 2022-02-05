@@ -81,15 +81,16 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             struct Particle iptl;
             iptl.gid = igid[i];
             iptl.flag = iflag[i];
-            iptl.ph.r = GET(iphase, i, 0);
-            iptl.ph.z = GET(iphase, i, 1);
-            iptl.ph.phi = GET(iphase, i, 2);
-            iptl.ph.rho = GET(iphase, i, 3);
-            iptl.ph.w1 = GET(iphase, i, 4);
-            iptl.ph.w2 = GET(iphase, i, 5);
-            iptl.ph.mu = GET(iphase, i, 6);
-            iptl.ph.w0 = GET(iphase, i, 7);
-            iptl.ph.f0 = GET(iphase, i, 8);
+            iptl.r = GET(iphase, i, 0);
+            iptl.z = GET(iphase, i, 1);
+            iptl.phi = GET(iphase, i, 2);
+            iptl.rho = GET(iphase, i, 3);
+            iptl.w1 = GET(iphase, i, 4);
+            iptl.w2 = GET(iphase, i, 5);
+            iptl.mu = GET(iphase, i, 6);
+            iptl.w0 = GET(iphase, i, 7);
+            iptl.f0 = GET(iphase, i, 8);
+            iptl.dw = idw[i];
 
             int flag1; // tmp flag
             flag1 = iflag[i];
@@ -114,15 +115,16 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             struct Particle eptl;
             eptl.gid = egid[i];
             eptl.flag = eflag[i];
-            eptl.ph.r = GET(ephase, i, 0);
-            eptl.ph.z = GET(ephase, i, 1);
-            eptl.ph.phi = GET(ephase, i, 2);
-            eptl.ph.rho = GET(ephase, i, 3);
-            eptl.ph.w1 = GET(ephase, i, 4);
-            eptl.ph.w2 = GET(ephase, i, 5);
-            eptl.ph.mu = GET(ephase, i, 6);
-            eptl.ph.w0 = GET(ephase, i, 7);
-            eptl.ph.f0 = GET(ephase, i, 8);
+            eptl.r = GET(ephase, i, 0);
+            eptl.z = GET(ephase, i, 1);
+            eptl.phi = GET(ephase, i, 2);
+            eptl.rho = GET(ephase, i, 3);
+            eptl.w1 = GET(ephase, i, 4);
+            eptl.w2 = GET(ephase, i, 5);
+            eptl.mu = GET(ephase, i, 6);
+            eptl.w0 = GET(ephase, i, 7);
+            eptl.f0 = GET(ephase, i, 8);
+            eptl.dw = edw[i];
 
             int flag1; // tmp flag
             flag1 = eflag[i];
