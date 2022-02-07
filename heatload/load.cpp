@@ -81,6 +81,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             struct Particle iptl;
             iptl.gid = igid[i];
             iptl.flag = iflag[i];
+            iptl.esc_step = 0;
             iptl.r = GET(iphase, i, 0);
             iptl.z = GET(iphase, i, 1);
             iptl.phi = GET(iphase, i, 2);
@@ -115,6 +116,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             struct Particle eptl;
             eptl.gid = egid[i];
             eptl.flag = eflag[i];
+            eptl.esc_step = 0;
             eptl.r = GET(ephase, i, 0);
             eptl.z = GET(ephase, i, 1);
             eptl.phi = GET(ephase, i, 2);

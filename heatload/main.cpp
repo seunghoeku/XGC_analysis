@@ -90,7 +90,7 @@ void heatload() {
 
         // separate divertor particles and escaped particles
         iesc_db.push_back(iesc);
-        iesc_db.push_back(eesc);
+        eesc_db.push_back(eesc);
         Particle ptl = search(iesc_db, i-1, 15824414);
         printf ("Found or not? gid=%lld\n", ptl.gid);
 
