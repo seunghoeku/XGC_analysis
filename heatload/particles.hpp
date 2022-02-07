@@ -6,19 +6,20 @@
 #include <vector>
 
 // particle data strcuture
+// float is used to save memory. Check any underflow happens??
 struct Particle
 {
-    double r;
-    double z;
-    double phi;
-    double rho;
-    double w1;
-    double w2;
-    double mu;
-    double w0;
-    double f0;
-    double B;
-    double psi;
+    float r;
+    float z;
+    float phi;
+    float rho;
+    float w1;
+    float w2;
+    float mu;
+    float w0;
+    float f0;
+    float B;
+    float psi;
     float dw;
     long long gid;
     int flag;
