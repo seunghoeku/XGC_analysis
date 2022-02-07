@@ -6,7 +6,7 @@
 #include "load.hpp"
 #include "sml.hpp"
 
-#define NPHASE = 11
+#define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
 adios2::ADIOS ad;
@@ -127,11 +127,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             struct Particle eptl;
             eptl.gid = egid[i];
             eptl.flag = eflag[i];
-<<<<<<< HEAD
             eptl.esc_step = estep[i];
-=======
-            eptl.esc_step = 0;
->>>>>>> c6079cf639033b0d5a40b74de86da9864fd5401e
             eptl.r = GET(ephase, i, 0);
             eptl.z = GET(ephase, i, 1);
             eptl.phi = GET(ephase, i, 2);
