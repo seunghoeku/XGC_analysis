@@ -6,6 +6,7 @@
 #include "flags.hpp"
 #include "sml.hpp"
 #include "heatload.hpp"
+#include <omp.h>
 
 extern Simulation sml;
 extern Particle search(t_ParticleDB &db, int timestep, long long gid);
@@ -14,7 +15,9 @@ extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
     
     printf ("\nHeatload calc particle size: %d\n", div.size());
+    #pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
     for(int i=0; i<div.size(); i++) {
+        // printf("%d: thread rank %d\n", i, omp_get_thread_num());
         if ((i+1)%100==0) std::cerr << ".";
         if ((i+1)%5000==0) std::cerr << std::endl << i+1;
 
@@ -37,11 +40,15 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
 
                     for(int icond=0; icond<N_COND; icond++){
                         if(cond.b[icond]){
-                            sp.side[side].ptl[icond][ip]   =  wp * ws;
-                            sp.side[side].ptl[icond][ip+1] =  wp * ws;
+                            #pragma omp critical(spupdate)
+                            {
+                                printf("%d: thread rank %d\n", i, omp_get_thread_num());
+                                sp.side[side].ptl[icond][ip]   =  wp * ws;
+                                sp.side[side].ptl[icond][ip+1] =  wp * ws;
 
-                            sp.side[side].en[icond][ip]   = en * wp * ws;
-                            sp.side[side].en[icond][ip+1] = en * wp * ws;
+                                sp.side[side].en[icond][ip]   = en * wp * ws;
+                                sp.side[side].en[icond][ip+1] = en * wp * ws;
+                            }
                         }
                     }
                 }
