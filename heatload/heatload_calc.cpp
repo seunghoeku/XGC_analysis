@@ -1,4 +1,6 @@
 #include <vector>
+#include <iostream>
+#include <stdio.h>
 
 #include "particles.hpp"
 #include "flags.hpp"
@@ -11,7 +13,10 @@ extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 // get heatload of single species
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
     
+    printf ("\nHeatload calc particle size: %d\n", div.size());
     for(int i=0; i<div.size(); i++) {
+        if ((i+1)%100==0) std::cerr << ".";
+        if ((i+1)%5000==0) std::cerr << std::endl << i+1;
 
         struct Particle p = div[i]; // particle that hit divertor
         double en = sml.c2_2m * p.rho * p.rho * p.B * p.B + p.mu*p.B;

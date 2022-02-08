@@ -54,7 +54,7 @@ void heatload() {
     init();
 
     // init adios
-    load_init("xgc.escaped_ptls.su455.bp");
+    load_init("xgc.escaped_ptls.bp");
 
     t_ParticleDB iesc_db; 
     t_ParticleDB eesc_db; 

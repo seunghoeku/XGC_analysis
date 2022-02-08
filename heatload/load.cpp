@@ -81,8 +81,8 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
         reader.Get<float>(var_ephase, ephase);
         reader.EndStep();
 
-        assert(iphase.size() / igid.size() == 9);
-        assert(ephase.size() / egid.size() == 9);
+        assert(iphase.size() / igid.size() == NPHASE);
+        assert(ephase.size() / egid.size() == NPHASE);
 
         // populate particles
         for (int i = 0; i < igid.size(); i++)
