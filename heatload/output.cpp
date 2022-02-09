@@ -1,21 +1,23 @@
+#include "output.hpp"
 #include "adios2.h"
-#include "heatload.hpp"
+#include "sml.hpp"
 
 adios2::ADIOS ad2;
-adios2::Engine output;
+adios2::Engine writer;
 adios2::IO output_io;
+
+extern Simulation sml;
 
 void output(HeatLoad &ion, HeatLoad &elec) {
     static bool first = true;
 
-    output_io = ad2.DeclareIO("output");
-    
     if(first) {
-        output = output_io.Open(filename, adios2::Mode::Write);
+        output_io = ad2.DeclareIO("output");
+        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write);
         first = false;
     }
     else {
-        output = output_io.Open(filename, adios2::Mode::Append);
+        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Append);
     }
 
 
@@ -32,5 +34,5 @@ void output(HeatLoad &ion, HeatLoad &elec) {
 
 void output_finalize()
 {
-    output.Close();
+    writer.Close();
 }

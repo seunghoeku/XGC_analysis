@@ -10,14 +10,13 @@
 #include "sml.hpp"
 #include "particles.hpp"
 #include "heatload.hpp"
+#include "output.hpp"
 
 #define GET(X, i, j) X[i * 9 + j]
 
 void heatload();
 void init(); // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
-void output(HeatLoad &ion, HeatLoad &elec); // output graphs or data for graphs
-void output_finalize();
 
 // extern "C" void set_test_type(int test_type);
 

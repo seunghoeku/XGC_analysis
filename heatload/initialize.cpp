@@ -33,7 +33,7 @@ void init() {
     reader.Get<double>("diag_heat_zmax2", sml.zmax[1] );
     reader.Get<double>("diag_heat_pmin2", sml.pmin[1] );
     reader.Get<double>("diag_heat_pmax2", sml.pmax[1] );
-
+    reader.Close();
 
     sml.npsi =  N_PSI;
     sml.ncond = N_COND;
@@ -42,10 +42,5 @@ void init() {
     sml.c2_2m[1] = (sml_e_charge * ptl_charge_eu) * (sml_e_charge * ptl_charge_eu) * 0.5 / (ptl_mass_au * sml_prot_mass);
     
     sml.dpsi[0]=(sml.pmax[0]-sml.pmin[0])/static_cast<double>(sml.npsi-1);
-    sml.dpsi[1]=(sml.pmax[1]-sml.pmin[1])/static_cast<double>(sml.npsi-1)
-
-;
-    reader.Close();
-
-    printf ("eq_x_psi= %g\n", sml.psix);
+    sml.dpsi[1]=(sml.pmax[1]-sml.pmin[1])/static_cast<double>(sml.npsi-1);
 }

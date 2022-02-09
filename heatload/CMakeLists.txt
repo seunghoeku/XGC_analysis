@@ -8,6 +8,7 @@ set(SOURCES
     initialize.cpp
     separate.cpp
     particles.cpp
+    output.cpp
 )
 
 add_executable (heatload ${SOURCES})
