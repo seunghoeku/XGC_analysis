@@ -22,7 +22,7 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
         if ((i+1)%5000==0) std::cerr << std::endl << i+1;
 
         struct Particle p = div[i]; // particle that hit divertor
-        double en = sml.c2_2m * p.rho * p.rho * p.B * p.B + p.mu*p.B;
+        double en = sml.c2_2m[sp.isp] * p.rho * p.rho * p.B * p.B + p.mu*p.B;
         double wp = p.dw * p.w0;
 
         struct Particle p_esc = search(db, p.esc_step, p.gid); // particle info when it escaped.
