@@ -13,10 +13,11 @@ class Simulation {
     
     double rmin[2], rmax[2], zmin[2], zmax[2];
     double pmin[2];
+    double pmax[2];
     double dpsi[2];
 
-    double c2_2m;
-    
+    double c2_2m[2];
+
     Simulation();
 };
 

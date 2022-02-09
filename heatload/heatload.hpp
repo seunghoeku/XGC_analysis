@@ -40,12 +40,21 @@ inline Conditions::Conditions(struct Particle ptl){
 class HeatLoad1{
 public:
     double  en[N_COND][N_PSI];
-    double ptl[N_COND][N_PSI];    
+    double ptl[N_COND][N_PSI];
 };
 
 class HeatLoad{
 public:
     HeatLoad1 side[N_SIDE];
+    int isp; // species index 
+
+    HeatLoad();
+    HeatLoad(int isp_in);
 };
 
+inline HeatLoad::HeatLoad(){} // empty constructor
+
+inline HeatLoad::HeatLoad(int isp_in){
+    isp = isp_in;
+}
 #endif

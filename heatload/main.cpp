@@ -97,8 +97,8 @@ void heatload() {
         // store escaped particles to DB
 
         // Calculate heatload from divertor particles
-        HeatLoad ion;
-        HeatLoad elec;
+        HeatLoad ion(1);
+        HeatLoad elec(0);
 
         heatload_calc(idiv, ion,  iesc_db); // need to send DB
         heatload_calc(ediv, elec, eesc_db);
