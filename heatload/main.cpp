@@ -16,8 +16,8 @@
 void heatload();
 void init(); // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
-void output(HeatLoad &ion, Heatload &elec); // output graphs or data for graphs
-
+void output(HeatLoad &ion, HeatLoad &elec); // output graphs or data for graphs
+void output_finalize();
 
 // extern "C" void set_test_type(int test_type);
 
