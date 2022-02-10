@@ -21,7 +21,7 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // cal
 // extern "C" void set_test_type(int test_type);
 
 Simulation sml; // input parameters that controls simulation. 
-
+adios2::ADIOS ad;
 
 int main(int argc, char *argv[]) {
     // Parse command line arguments

@@ -3,9 +3,9 @@
 #include "heatload.hpp"
 
 extern Simulation sml;
+extern adios2::ADIOS ad;
 
 void init() {
-    adios2::ADIOS ad;
     adios2::Engine reader;
     adios2::IO reader_io;
 

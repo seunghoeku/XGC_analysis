@@ -9,7 +9,7 @@
 #define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
-adios2::ADIOS ad;
+extern adios2::ADIOS ad;
 adios2::Engine reader;
 adios2::IO reader_io;
 
