@@ -15,7 +15,6 @@ adios2::Engine writer;
 extern Simulation sml;
 
 void output(HeatLoad &ion, HeatLoad &elec) {
-    printf ("output started.\n");
     static bool first = true;
 
     if(first) {
