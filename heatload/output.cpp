@@ -23,7 +23,6 @@ void output(HeatLoad &ion, HeatLoad &elec) {
         output_io.DefineVariable<double>("io.side", {N_SIDE+1}, {0}, {N_SIDE+1});
 
         writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write);
-        writer.BeginStep();
 
         first = false;
     }
