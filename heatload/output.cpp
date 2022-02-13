@@ -29,7 +29,7 @@ void output(HeatLoad &ion, HeatLoad &elec) {
     }
 
     // double psi[N_SIDE][N_PSI];
-    std::vector<double> psi (N_SIDE*N_PSI);
+    std::vector<double> psi (N_SIDE*N_PSI);  //why vector? not just double?
 
     for(int is=0; is<N_SIDE; is++) {
         for(int i=0; i<N_PSI; i++){
@@ -38,11 +38,39 @@ void output(HeatLoad &ion, HeatLoad &elec) {
         }
     }
 
+    double  ienflux[N_SIDE*N_COND*N_PSI];
+    double iptlflux[N_SIDE*N_COND*N_PSI];
+    double  eenflux[N_SIDE*N_COND*N_PSI];
+    double eptlflux[N_SIDE*N_COND*N_PSI];
+
+    for(int is=0; is<N_SIDE; is++) {
+        for(int ic=0; ic<N_COND; ic++){
+            for(int i=0; i<N_PSI; i++){
+                // psi[is][i] = sml.pmin[is] + sml.dpsi[is] * (double)(i);
+                GET3D(ienflux, N_COND, N_PSI, is, ic, i) = ion.side[is].en[ic][i];
+                GET3D(iptlflux, N_COND, N_PSI, is, ic, i) = ion.side[is].ptl[ic][i];
+                GET3D(eenflux, N_COND, N_PSI, is, ic, i) = elec.side[is].en[ic][i];
+                GET3D(eptlflux, N_COND, N_PSI, is, ic, i) = elec.side[is].ptl[ic][i];
+            }
+        }
+    }
+
+
     // save psi, ion.side[0:N_SIDE].en[0:N_COND][0:N_PSI] and ptl[0:NCOND][0:N_PSI] and electron.
     auto var_psi = output_io.InquireVariable<double>("psi");
+    auto var_ienflux =  output_io.InquireVariable<double>("ienflux");
+    auto var_iptlflux = output_io.InquireVariable<double>("iptlflux");
+    auto var_eenflux =  output_io.InquireVariable<double>("eenflux");
+    auto var_eptlflux = output_io.InquireVariable<double>("eptlflux");
+
 
     writer.BeginStep();
     writer.Put<double>(var_psi, psi.data());
+    writer.Put<double>(var_ienflux,  ienflux);
+    writer.Put<double>(var_iptlflux, iptlflux);
+    writer.Put<double>(var_eenflux,  eenflux);
+    writer.Put<double>(var_eptlflux, eptlflux);
+
     writer.EndStep();
 }
 

@@ -15,6 +15,11 @@ void init() {
     double sml_e_charge, sml_prot_mass;
     double ptl_mass_au, ptl_charge_eu, ptl_e_mass_au, ptl_e_charge_eu;
     reader.Get<double>("eq_x_psi", sml.psix);
+    reader.Get<double>("eq_x_r", sml.x_r);
+    reader.Get<double>("eq_x_z", sml.x_z);
+    reader.Get<double>("eq_axis_r", sml.axis_r);
+    reader.Get<double>("eq_axis_z", sml.axis_z);
+    reader.Get<double>("sml_dt", sml.dt);
     reader.Get<double>("sml_e_charge", sml_e_charge);
     reader.Get<double>("sml_prot_mass", sml_prot_mass);
     reader.Get<double>("ptl_mass_au", ptl_mass_au);
@@ -43,4 +48,12 @@ void init() {
     
     sml.dpsi[0]=(sml.pmax[0]-sml.pmin[0])/static_cast<double>(sml.npsi-1);
     sml.dpsi[1]=(sml.pmax[1]-sml.pmin[1])/static_cast<double>(sml.npsi-1);
+
+    // get poloidal angle of X point
+    sml.x_theta = atan2( sml.x_z - sml.axis_z, sml.x_r - sml.axis_r);
+    if( sml.x_r - sml.axis_r < 0) {
+        sml.x_theta = sml.x_theta + M_PI;
+    }
+    sml.ntheta = N_THETA;
+    sml.dtheta = 2. * M_PI / (double)N_THETA; 
 }

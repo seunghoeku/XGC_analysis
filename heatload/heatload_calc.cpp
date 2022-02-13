@@ -6,7 +6,9 @@
 #include "flags.hpp"
 #include "sml.hpp"
 #include "heatload.hpp"
+#ifdef USE_OMP
 #include <omp.h>
+#endif
 
 extern Simulation sml;
 extern Particle search(t_ParticleDB &db, int timestep, long long gid);
@@ -40,9 +42,13 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
 
                     for(int icond=0; icond<N_COND; icond++){
                         if(cond.b[icond]){
+#ifdef USE_OMP
                             #pragma omp critical(spupdate)
                             {
                                 printf("%d: thread rank %d\n", i, omp_get_thread_num());
+#else
+                            {
+#endif
                                 sp.side[side].ptl[icond][ip]   =  wp * ws;
                                 sp.side[side].ptl[icond][ip+1] =  wp * ws;
 

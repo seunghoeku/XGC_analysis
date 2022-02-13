@@ -2,12 +2,17 @@
 #define HEATLOAD_HPP
 
 #include <vector>
+#include <math.h>
 #include "particles.hpp"
 #include "flags.hpp"
+#include "sml.hpp"
 
 #define N_SIDE 2
-#define N_COND 2
+#define N_THETA  8 
+#define N_COND (N_THETA + 1)
 #define N_PSI 1000
+
+extern Simulation sml;
 
 //class for conditions
 class Conditions{
@@ -15,6 +20,7 @@ public:
     bool b[N_COND];
     Conditions();
     Conditions(struct Particle ptl);
+    inline double get_angle(double x, double y);
 };
 
 inline Conditions::Conditions(){
@@ -25,15 +31,32 @@ inline Conditions::Conditions(struct Particle ptl){
 
     // get conditions
     Flags fl(ptl.flag);
+    
     // get poloidal angle
+    double theta, r, z;
+    theta = get_angle(r-sml.axis_r, z-sml.axis_z);
+    theta = fmod( theta - sml.x_theta + 2*M_PI , 2.*M_PI);
 
     // get energy (normalized with T0)
 
 
     // check every ifs
     b[0]=true;  // always satisfied.
-    b[1]=fl.outboard; // escaped from outboard
+    for( int i=1; i<=N_THETA; i++) b[i]=false; // default false
+    int itheta = theta/sml.dtheta;
+    itheta = std::min(itheta, N_THETA); // itheta = 0 - N_THETA-1
+    b[itheta+1]=true; // set true for the angle segment
 
+//    b[1]=fl.outboard; // escaped from outboard
+
+}
+
+inline double Conditions::get_angle(double x, double y){
+    double angle = atan2(y,x);
+    if(x<0.){
+ 		angle += M_PI;
+	}
+    return(angle);
 }
 
 //class for heatload

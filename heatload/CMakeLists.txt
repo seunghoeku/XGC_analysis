@@ -12,4 +12,9 @@ set(SOURCES
 )
 
 add_executable (heatload ${SOURCES})
-target_link_libraries(heatload adios2::adios2 OpenMP::OpenMP_CXX)
+if (OpenMP_FOUND)
+    target_compile_definitions(heatload PUBLIC USE_OMP)
+    target_link_libraries(heatload adios2::adios2 OpenMP::OpenMP_CXX)
+else()
+    target_link_libraries(heatload adios2::adios2)
+endif()
