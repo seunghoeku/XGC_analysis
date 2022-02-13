@@ -20,6 +20,11 @@ void output(HeatLoad &ion, HeatLoad &elec) {
     if(first) {
         output_io = ad.DeclareIO("output");
         output_io.DefineVariable<double>("psi", {N_SIDE, N_PSI}, {0, 0}, {N_SIDE, N_PSI});
+        output_io.DefineVariable<double>("ienflux", {N_SIDE, N_COND, N_PSI}, {0, 0, 0}, {N_SIDE, N_COND, N_PSI});
+        output_io.DefineVariable<double>("iptlflux", {N_SIDE, N_COND, N_PSI}, {0, 0, 0}, {N_SIDE, N_COND, N_PSI});
+        output_io.DefineVariable<double>("eenflux", {N_SIDE, N_COND, N_PSI}, {0, 0, 0}, {N_SIDE, N_COND, N_PSI});
+        output_io.DefineVariable<double>("eptlflux", {N_SIDE, N_COND, N_PSI}, {0, 0, 0}, {N_SIDE, N_COND, N_PSI});
+
         output_io.DefineVariable<double>("io.side", {N_SIDE+1}, {0}, {N_SIDE+1});
 
         writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write);
@@ -38,10 +43,15 @@ void output(HeatLoad &ion, HeatLoad &elec) {
         }
     }
 
-    double  ienflux[N_SIDE*N_COND*N_PSI];
+    /*double  ienflux[N_SIDE*N_COND*N_PSI];
     double iptlflux[N_SIDE*N_COND*N_PSI];
     double  eenflux[N_SIDE*N_COND*N_PSI];
-    double eptlflux[N_SIDE*N_COND*N_PSI];
+    double eptlflux[N_SIDE*N_COND*N_PSI];*/
+
+    std::vector<double>  ienflux(N_SIDE*N_COND*N_PSI);
+    std::vector<double> iptlflux(N_SIDE*N_COND*N_PSI);
+    std::vector<double>  eenflux(N_SIDE*N_COND*N_PSI);
+    std::vector<double> eptlflux(N_SIDE*N_COND*N_PSI);
 
     for(int is=0; is<N_SIDE; is++) {
         for(int ic=0; ic<N_COND; ic++){
@@ -66,10 +76,10 @@ void output(HeatLoad &ion, HeatLoad &elec) {
 
     writer.BeginStep();
     writer.Put<double>(var_psi, psi.data());
-    writer.Put<double>(var_ienflux,  ienflux);
-    writer.Put<double>(var_iptlflux, iptlflux);
-    writer.Put<double>(var_eenflux,  eenflux);
-    writer.Put<double>(var_eptlflux, eptlflux);
+    writer.Put<double>(var_ienflux,  ienflux.data());
+    writer.Put<double>(var_iptlflux, iptlflux.data());
+    writer.Put<double>(var_eenflux,  eenflux.data());
+    writer.Put<double>(var_eptlflux, eptlflux.data());
 
     writer.EndStep();
 }
