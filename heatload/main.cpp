@@ -71,6 +71,7 @@ void heatload() {
         if (status != adios2::StepStatus::OK)
             break;
 
+        std::cout << std::endl;
         std::cout << ">>> Step: " << i << std::endl;
         std::cout << "Num. of escaped ions: " << iesc.size() << std::endl;
         std::cout << "Num. of escaped elec: " << eesc.size() << std::endl;

@@ -16,7 +16,7 @@ extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 // get heatload of single species
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
     
-    printf ("\nHeatload calc particle size: %d\n", div.size());
+    printf ("\nHeatload calc particle size: %ld\n", div.size());
     #pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
     for(int i=0; i<div.size(); i++) {
         // printf("%d: thread rank %d\n", i, omp_get_thread_num());
@@ -42,12 +42,10 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
 
                     for(int icond=0; icond<N_COND; icond++){
                         if(cond.b[icond]){
-#ifdef USE_OMP
                             #pragma omp critical(spupdate)
                             {
+#ifdef USE_OMP
                                 printf("%d: thread rank %d\n", i, omp_get_thread_num());
-#else
-                            {
 #endif
                                 sp.side[side].ptl[icond][ip]   =  wp * ws;
                                 sp.side[side].ptl[icond][ip+1] =  wp * ws;

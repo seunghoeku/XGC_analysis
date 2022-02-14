@@ -1,6 +1,7 @@
 #ifndef HEATLOAD_HPP
 #define HEATLOAD_HPP
 
+#include <iostream>
 #include <vector>
 #include <math.h>
 #include "particles.hpp"
@@ -33,8 +34,8 @@ inline Conditions::Conditions(struct Particle ptl){
     Flags fl(ptl.flag);
     
     // get poloidal angle
-    double theta, r, z;
-    theta = get_angle(r-sml.axis_r, z-sml.axis_z);
+    double theta;
+    theta = get_angle(ptl.r-sml.axis_r, ptl.z-sml.axis_z);
     theta = fmod( theta - sml.x_theta + 2*M_PI , 2.*M_PI);
 
     // get energy (normalized with T0)
