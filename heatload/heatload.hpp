@@ -1,6 +1,7 @@
 #ifndef HEATLOAD_HPP
 #define HEATLOAD_HPP
 
+#include <iostream>
 #include <vector>
 #include <math.h>
 #include "particles.hpp"
