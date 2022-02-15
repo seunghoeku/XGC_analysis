@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <stdio.h>
+#include <ctime>
 
 #include "particles.hpp"
 #include "flags.hpp"
@@ -13,15 +14,30 @@
 extern Simulation sml;
 extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 
+static long int _progress_step_current = 0;
+void progress_step(long int total) {
+    ++_progress_step_current;
+    if (_progress_step_current%100==0) std::cerr << ".";
+    if ((_progress_step_current-1)%5000==0) 
+        fprintf (stderr, "\n%ld/%ld ", _progress_step_current-1, total);
+}
+
 // get heatload of single species
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
     
     printf ("\nHeatload calc particle size: %ld\n", div.size());
+    // reset progress bar
+    _progress_step_current = 0;
+    std::time_t start = std::time(nullptr);
     #pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
     for(int i=0; i<div.size(); i++) {
         // printf("%d: thread rank %d\n", i, omp_get_thread_num());
-        if ((i+1)%100==0) std::cerr << ".";
-        if ((i+1)%5000==0) std::cerr << std::endl << i+1;
+        // if ((i+1)%100==0) std::cerr << ".";
+        // if ((i+1)%5000==0) std::cerr << std::endl << i+1 << " ";
+        #pragma omp critical
+        {
+            progress_step(div.size());
+        }
 
         struct Particle p = div[i]; // particle that hit divertor
         double en = sml.c2_2m[sp.isp] * p.rho * p.rho * p.B * p.B + p.mu*p.B;
@@ -59,6 +75,6 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
 
             }
         }
-
     }
+    printf("\nWall time (seconds): %f\n", std::difftime(std::time(nullptr), start));
 }
