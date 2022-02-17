@@ -6,7 +6,7 @@
 // 2D array of shape (d0, d1): index at (i,j) is (d1*i + j)
 // 3D array of shape (d0, d1, d2): index at (i,j,k) is ((d1+d2)*i + d2*j + k)
 #define GET2D(X, d1, i, j) X[d1*i + j]
-#define GET3D(X, d1, d2, i, j, k) X[(d1+d2)*i + d2*j + k]
+#define GET3D(X, d1, d2, i, j, k) X[(d1*d2)*i + d2*j + k]
 
 adios2::IO output_io;
 adios2::Engine writer;
