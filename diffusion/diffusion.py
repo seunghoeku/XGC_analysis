@@ -83,9 +83,6 @@ class Diffusion():
 
 
 
-        self.aggregate_stats()
-
-
     def setup_adios(engine, channel_name):
         """setup adios2 reader"""
         self.adios = adios2.ADIOS()
