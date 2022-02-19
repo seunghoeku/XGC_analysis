@@ -2,6 +2,8 @@
 
 #include <assert.h>
 #include <string>
+#include <chrono>
+#include <thread>
 
 #include "adios2.h"
 #include "flags.hpp"
@@ -68,8 +70,21 @@ void heatload() {
         t_ParticlesList eesc;
 
         adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
-        if (status != adios2::StepStatus::OK)
+        if (status == adios2::StepStatus::EndOfStream)
+        { 
+            std::cout << "Input stream terminated. Exit loop" << std::endl;
             break;
+        }
+        else if (status == adios2::StepStatus::NotReady)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            continue;
+        }
+        else if (status == adios2::StepStatus::OtherError)
+        {
+            std::cout << "Input stream had errors. Exit loop" << std::endl;
+            break;
+        }
 
         std::cout << std::endl;
         std::cout << ">>> Step: " << i << std::endl;
