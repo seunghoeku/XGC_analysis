@@ -14,7 +14,7 @@
         </engine>
     </io>
     <io name="output.units">
-        <engine type="FileStream">
+        <engine type="File">
             <parameter key="Profile" value="On"/>
             <parameter key="OpenTimeoutSecs" value="3600"/>
         </engine>
