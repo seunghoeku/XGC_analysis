@@ -3,14 +3,13 @@
 #include "heatload.hpp"
 
 extern Simulation sml;
-extern adios2::ADIOS ad;
+extern adios2::ADIOS *ad;
 
 void init() {
     adios2::Engine reader;
     adios2::IO reader_io;
 
-    reader_io = ad.DeclareIO("init");
-    reader_io.SetParameter("OpenTimeoutSecs", "3600");
+    reader_io = ad->DeclareIO("output.units"); // same IO name as in XGC
     reader = reader_io.Open("xgc.units.bp", adios2::Mode::Read);
 
     double sml_e_charge, sml_prot_mass;

@@ -12,13 +12,13 @@ adios2::IO output_io;
 adios2::Engine writer;
 
 extern Simulation sml;
-extern adios2::ADIOS ad;
+extern adios2::ADIOS *ad;
 
 void output(HeatLoad &ion, HeatLoad &elec) {
     static bool first = true;
 
     if(first) {
-        output_io = ad.DeclareIO("output");
+        output_io = ad->DeclareIO("heatload");
         output_io.DefineVariable<double>("psi", {N_SIDE, N_PSI}, {0, 0}, {N_SIDE, N_PSI});
         output_io.DefineVariable<double>("ienflux", {N_SIDE, N_COND, N_PSI}, {0, 0, 0}, {N_SIDE, N_COND, N_PSI});
         output_io.DefineVariable<double>("iptlflux", {N_SIDE, N_COND, N_PSI}, {0, 0, 0}, {N_SIDE, N_COND, N_PSI});
