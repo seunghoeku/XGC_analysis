@@ -10,6 +10,7 @@ void init() {
     adios2::IO reader_io;
 
     reader_io = ad.DeclareIO("init");
+    reader_io.SetParameter("OpenTimeoutSecs", "3600");
     reader = reader_io.Open("xgc.units.bp", adios2::Mode::Read);
 
     double sml_e_charge, sml_prot_mass;

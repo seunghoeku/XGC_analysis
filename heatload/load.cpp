@@ -16,6 +16,7 @@ adios2::IO reader_io;
 void load_init(const std::string &filename)
 {
     reader_io = ad.DeclareIO("headload");
+    reader_io.SetParameter("OpenTimeoutSecs", "3600");
     reader = reader_io.Open(filename, adios2::Mode::Read);
 }
 
