@@ -6,6 +6,12 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+"""
+Block-by-block read demonstration:
+Let assume there is a Adios file written by N writers (N blocks) and we have M readers (M < N).
+Each reader will read about (N/M) number of blocks one by one.
+"""
+
 
 def adios2_get_block_list(reader, varname, istep):
     block_list = reader.BlocksInfo(varname, istep)
@@ -35,27 +41,40 @@ while True:
             print("No more data")
         break
 
-    """
-    Block-by-block reading
-    Assume there is a Adios data written by N writer (N blocks) and we have M readers (M < N)
-    Each reader will read about (N/M) number of blocks one by one
-    """
     istep = reader.CurrentStep()
     shape_list = adios2_get_block_list(reader, "i_table", istep)
     my_block_list = split_given_size(shape_list, int(np.ceil(len(shape_list) / size)))
 
-
     for block in my_block_list[rank]:
 
         ## Prepare data
+        i_ntLV = np.zeros(1, dtype=np.int64)
+        i_ntriangles = np.zeros(1, dtype=np.int64)
         i_table = np.zeros(block["shape"], dtype=np.double)
-        var = IO.InquireVariable("i_table")
-        var.SetBlockSelection(block["id"])
-        reader.Get(var, i_table)
+
+        var_i_ntLV = IO.InquireVariable("i_ntLV")
+        var_i_ntriangles = IO.InquireVariable("i_ntriangles")
+        var_i_table = IO.InquireVariable("i_table")
+        
+
+        var_i_ntLV.SetBlockSelection(block["id"])
+        var_i_ntriangles.SetBlockSelection(block["id"])
+        var_i_table.SetBlockSelection(block["id"])
+
+        reader.Get(var_i_ntLV, i_ntLV)
+        reader.Get(var_i_ntriangles, i_ntriangles)
+        reader.Get(var_i_table, i_table)
         reader.PerformGets()
 
         print(
-            istep, rank, block["id"], block["shape"], np.min(i_table), np.max(i_table)
+            istep,
+            rank,
+            block["id"],
+            block["shape"],
+            np.min(i_table),
+            np.max(i_table),
+            i_ntLV.item(),
+            i_ntriangles.item(),
         )
 
     reader.EndStep()
