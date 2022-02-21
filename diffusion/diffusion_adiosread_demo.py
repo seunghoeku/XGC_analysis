@@ -47,20 +47,22 @@ while True:
 
     for block in my_block_list[rank]:
 
-        ## Prepare data
+        ## Prepare array
         i_ntLV = np.zeros(1, dtype=np.int64)
         i_ntriangles = np.zeros(1, dtype=np.int64)
         i_table = np.zeros(block["shape"], dtype=np.double)
 
+        ## Inquire var info
         var_i_ntLV = IO.InquireVariable("i_ntLV")
         var_i_ntriangles = IO.InquireVariable("i_ntriangles")
         var_i_table = IO.InquireVariable("i_table")
-        
 
+        ## Set block info
         var_i_ntLV.SetBlockSelection(block["id"])
         var_i_ntriangles.SetBlockSelection(block["id"])
         var_i_table.SetBlockSelection(block["id"])
 
+        ## Read
         reader.Get(var_i_ntLV, i_ntLV)
         reader.Get(var_i_ntriangles, i_ntriangles)
         reader.Get(var_i_table, i_table)
