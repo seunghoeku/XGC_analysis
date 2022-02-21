@@ -45,6 +45,7 @@ while True:
     shape_list = adios2_get_block_list(reader, "i_table", istep)
     my_block_list = split_given_size(shape_list, int(np.ceil(len(shape_list) / size)))
 
+    ## Read block by block
     for block in my_block_list[rank]:
 
         ## Prepare array
