@@ -25,10 +25,6 @@ def adios2_get_block_list(reader, varname, istep):
     return shape_list
 
 
-def split_given_size(a, size):
-    return np.split(a, np.arange(size, len(a), size))
-
-
 ah = ad2.ADIOS(MPI.COMM_WORLD)
 IO = ah.DeclareIO("diffusion_read")
 IO.SetEngine("BP4")
@@ -43,7 +39,7 @@ while True:
 
     istep = reader.CurrentStep()
     shape_list = adios2_get_block_list(reader, "i_table", istep)
-    my_block_list = split_given_size(shape_list, int(np.ceil(len(shape_list) / size)))
+    my_block_list = np.array_split(shape_list, size)
 
     ## Read block by block
     for block in my_block_list[rank]:
