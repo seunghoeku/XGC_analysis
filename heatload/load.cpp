@@ -9,13 +9,13 @@
 #define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
-extern adios2::ADIOS ad;
+extern adios2::ADIOS *ad;
 adios2::Engine reader;
 adios2::IO reader_io;
 
 void load_init(const std::string &filename)
 {
-    reader_io = ad.DeclareIO("headload");
+    reader_io = ad->DeclareIO("escaped_ptls"); // same IO name as in XGC
     reader = reader_io.Open(filename, adios2::Mode::Read);
 }
 
