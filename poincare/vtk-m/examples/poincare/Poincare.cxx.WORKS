@@ -1,0 +1,815 @@
+//============================================================================
+//  Copyright (c) Kitware, Inc.
+//  All rights reserved.
+//  See LICENSE.txt for details.
+//
+//  This software is distributed WITHOUT ANY WARRANTY; without even
+//  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+//  PURPOSE.  See the above copyright notice for more information.
+//============================================================================
+
+#include <typeinfo>
+#include <vtkm/cont/ArrayCopy.h>
+#include <vtkm/cont/ArrayHandle.h>
+#include <vtkm/cont/DataSet.h>
+#include <vtkm/cont/testing/Testing.h>
+#include <vtkm/filter/GhostCellClassify.h>
+#include <vtkm/io/VTKDataSetReader.h>
+#include <vtkm/worklet/WorkletMapTopology.h>
+#include <vtkm/worklet/WorkletMapField.h>
+#include <vtkm/worklet/ParticleAdvection.h>
+#include <vtkm/worklet/particleadvection/EulerIntegrator.h>
+#include <vtkm/worklet/particleadvection/Field.h>
+#include <vtkm/worklet/particleadvection/GridEvaluators.h>
+#include <vtkm/worklet/particleadvection/Particles.h>
+#include <vtkm/worklet/particleadvection/RK4Integrator.h>
+#include <vtkm/worklet/particleadvection/Stepper.h>
+#include <vtkm/worklet/testing/GenerateTestDataSets.h>
+
+#include <vtkm/io/VTKDataSetWriter.h>
+
+#include <fides/DataSetReader.h>
+
+#include <random>
+#include <chrono>
+#include <mpi.h>
+#include <adios2.h>
+
+adios2::ADIOS *adios = NULL;
+int numNodes=-1, numTri=-1, numPlanesInFile=-1;
+int planesBetween = 0;
+int totNumPlanes = -1;
+bool extendToFull = true;
+class adiosS;
+std::map<std::string, adiosS*> adiosStuff;
+double psi_x = 0.2661956235889000;
+double xpoint_r = 1.557545038402000;
+double xpoint_z = -1.177067412978000;
+int nWedge = 1;
+
+
+class adiosS
+{
+public:
+    adiosS() {}
+    adiosS(adios2::ADIOS *adiosPtr,
+           const std::string &fn,
+           const std::string &ioNm,
+           const std::map<std::string, std::string> &args) : ioName(ioNm)
+    {
+        std::string pathNm = ".";
+
+        auto x = args.find("--dir")->second;
+        if (x.size() > 0) pathNm = x;
+        this->fileName = pathNm + "/" + fn;
+        std::cout<<"Open: "<<this->fileName<<std::endl;
+        this->io = adios2::IO(adiosPtr->DeclareIO(this->ioName));
+        this->engine = io.Open(fileName, adios2::Mode::Read);
+    }
+    ~adiosS() { engine.Close(); }
+    adiosS& operator=(const adiosS &a)
+    {
+        ioName = a.ioName;
+        fileName = a.fileName;
+        io = a.io;
+        engine = a.engine;
+        return *this;
+    }
+
+    std::string ioName, fileName;
+    adios2::IO io;
+    adios2::Engine engine;
+};
+
+
+void CreateGeom(bool fullTorus,
+                const std::vector<double>& rz,
+                const std::vector<int>& conn,
+                int numPlanes,
+                double totAngle,
+                std::vector<vtkm::Vec3f>& coords,
+                std::vector<vtkm::Id> &connIds,
+                std::vector<vtkm::FloatDefault> &RArr,
+                std::vector<vtkm::FloatDefault> &ZArr,
+                std::vector<vtkm::FloatDefault> &PhiArr,
+                std::vector<vtkm::FloatDefault> &PlaneArr)
+{
+    int nNodes = rz.size()/2;
+
+    coords.resize(nNodes * numPlanes);
+    RArr.resize(coords.size());
+    ZArr.resize(coords.size());
+    PhiArr.resize(coords.size());
+    PlaneArr.resize(coords.size());
+
+    double phi = 0.0;
+    double dPhi = totAngle/static_cast<double>(numPlanes);
+
+    for (int p = 0; p < numPlanes; p++)
+    {
+      //std::cout<<"Plane= "<<p<<" phi= "<<phi<<" last = "<<(p==numPlanes-1)<<std::endl;
+        vtkm::Vec3f pt;
+        for (int i = 0; i < nNodes; i++)
+        {
+            double R = rz[i*2 +0];
+            double Z = rz[i*2 +1];
+
+            pt[0] = R*cos(phi);
+            pt[1] = R*sin(phi);
+            pt[2] = Z;
+            int idx = i+p*nNodes;
+            coords[idx] = pt;
+
+            RArr[idx] = static_cast<vtkm::FloatDefault>(R);
+            ZArr[idx] = static_cast<vtkm::FloatDefault>(Z);
+            PhiArr[idx] = totAngle - -phi;
+            PlaneArr[idx] = 1 - static_cast<vtkm::FloatDefault>(p)/static_cast<vtkm::FloatDefault>(totNumPlanes);
+        }
+
+        phi -= dPhi;
+    }
+    std::cout<<"FullTorus= "<<fullTorus<<std::endl;
+    std::cout<<"#coords= "<<coords.size()<<std::endl;
+    std::cout<<"#conn= "<<conn.size()<<std::endl;
+    std::cout<<"totNumPlanes= "<<totNumPlanes<<std::endl;
+
+    int plane = 0;
+    for (int p = 0; p < numPlanes; p++)
+    {
+        for (int i = 0; i < numTri*3; i+=3)
+        {
+            int off = plane*nNodes;
+            int p0 = conn[i+0];
+            int p1 = conn[i+1];
+            int p2 = conn[i+2];
+
+            int badID = -1;
+            connIds.push_back(p0 + off);
+            connIds.push_back(p1 + off);
+            connIds.push_back(p2 + off);
+
+            if (p0+off >= coords.size()) badID = 0;
+            if (p1+off >= coords.size()) badID = 1;
+            if (p2+off >= coords.size()) badID = 2;
+
+            off = (plane+1)*(nNodes);
+            //p0 = nnPtr[p0];
+            //p1 = nnPtr[p1];
+            //p2 = nnPtr[p2];
+
+            //Connect back to the first plane.
+            if (plane == (numPlanes-1) && fullTorus)
+                off = 0;
+
+            connIds.push_back(p0 + off);
+            connIds.push_back(p1 + off);
+            connIds.push_back(p2 + off);
+
+            if (p0+off >= coords.size()) badID = 3;
+            if (p1+off >= coords.size()) badID = 4;
+            if (p2+off >= coords.size()) badID = 5;
+
+            if (badID != -1)
+            {
+                std::cout<<"BAD ID: plane= "<<plane<<" offset= "<<badID<<" i= "<<i<<std::endl;
+                std::cout<<"   "<<p0+off<<" "<<p1+off<<" "<<p2+off<<std::endl;
+                std::cout<<"   off= "<<plane*nNodes<<" "<<off<<std::endl;
+                exit(-1);
+            }
+        }
+        plane++;
+    }
+}
+
+vtkm::cont::DataSet
+readMesh(adiosS *stuff, int nPlanesBetween=0, bool extendToFullTorus=true)
+{
+    stuff->engine.BeginStep();
+    stuff->engine.Get(stuff->io.InquireVariable<int>("n_n"), &numNodes, adios2::Mode::Sync);
+    stuff->engine.Get(stuff->io.InquireVariable<int>("n_t"), &numTri, adios2::Mode::Sync);
+
+    std::vector<double> rz;
+    std::vector<int> conn;
+    stuff->engine.Get(stuff->io.InquireVariable<double>("/coordinates/values"), rz, adios2::Mode::Sync);
+    std::string connNm = "/cell_set[0]/node_connect_list";
+    connNm = "nd_connect_list";
+    stuff->engine.Get(stuff->io.InquireVariable<int>(connNm), conn, adios2::Mode::Sync);
+
+    std::vector<double> psi;
+    stuff->engine.Get(stuff->io.InquireVariable<double>("psi"), psi, adios2::Mode::Sync);
+    std::for_each(psi.begin(), psi.end(), [](double &v) {v /= psi_x;});
+
+    vtkm::cont::DataSet grid;
+    totNumPlanes = numPlanesInFile + (numPlanesInFile*nPlanesBetween);
+
+    if (extendToFullTorus && nWedge != 1)
+        totNumPlanes = (nWedge*numPlanesInFile) + ((nWedge*numPlanesInFile)*nPlanesBetween);
+
+    double totAngle = (2*M_PI) / static_cast<double>(nWedge);
+    if (extendToFullTorus && nWedge != 1)
+        totAngle = 2*M_PI;
+
+    double dPhi = totAngle/static_cast<double>(totNumPlanes);
+
+    std::vector<vtkm::Vec3f> coords;
+    std::vector<vtkm::FloatDefault> RArr, ZArr, PhiArr, PlaneArr;
+    std::vector<vtkm::Id> connIds;
+    CreateGeom(extendToFullTorus, rz, conn, totNumPlanes, totAngle, coords, connIds, RArr, ZArr, PhiArr, PlaneArr);
+
+    vtkm::cont::DataSetBuilderExplicit dsb;
+    grid = dsb.Create(coords, vtkm::CellShapeTagWedge(), 6, connIds, "coords");
+
+    int sz = psi.size();
+    std::vector<vtkm::FloatDefault> psif(sz);
+    for (int i = 0; i < sz; i++)
+        psif[i] = psi[i];
+
+    std::vector<vtkm::FloatDefault> psi3D(RArr.size(), -1.0f);
+    int idx = 0;
+    for (int i = 0; i < totNumPlanes; i++)
+        for (int j = 0; j < sz; j++)
+            psi3D[idx++] = static_cast<vtkm::FloatDefault>(psi[j]);
+
+    grid.AddField(vtkm::cont::make_Field("psi", vtkm::cont::Field::Association::WHOLE_MESH,
+                                         psif, vtkm::CopyFlag::On));
+    grid.AddField(vtkm::cont::make_FieldPoint("psi3D", vtkm::cont::make_ArrayHandle(psi3D, vtkm::CopyFlag::On)));
+    grid.AddField(vtkm::cont::make_FieldPoint("R", vtkm::cont::make_ArrayHandle(RArr, vtkm::CopyFlag::On)));
+    grid.AddField(vtkm::cont::make_FieldPoint("Z", vtkm::cont::make_ArrayHandle(ZArr, vtkm::CopyFlag::On)));
+    grid.AddField(vtkm::cont::make_FieldPoint("Phi", vtkm::cont::make_ArrayHandle(PhiArr, vtkm::CopyFlag::On)));
+    grid.AddField(vtkm::cont::make_FieldPoint("Plane", vtkm::cont::make_ArrayHandle(PlaneArr, vtkm::CopyFlag::On)));
+
+    return grid;
+}
+
+vtkm::cont::DataSet
+ReadMesh(std::map<std::string, adiosS*> &adiosStuff, bool fullGrid, bool extend)
+{
+    auto data = adiosStuff["data"];
+    data->engine.Get(data->io.InquireVariable<int>("nphi"), &numPlanesInFile, adios2::Mode::Sync);
+
+    return readMesh(adiosStuff["mesh"], planesBetween, extend);
+}
+
+class FindCellWorklet : public vtkm::worklet::WorkletMapField
+{
+public:
+  using ControlSignature = void(FieldIn points,
+                                ExecObject locator,
+                                FieldOut cellIds,
+                                FieldOut pcoords);
+  using ExecutionSignature = void(_1, _2, _3, _4);
+
+  template <typename LocatorType>
+  VTKM_EXEC void operator()(const vtkm::Vec3f& point,
+                            const LocatorType& locator,
+                            vtkm::Id& cellId,
+                            vtkm::Vec3f& pcoords) const
+  {
+    std::cout<<"Call Locator...."<<std::endl;
+    vtkm::ErrorCode status = locator.FindCell(point, cellId, pcoords);
+    std::cout<<"Loc: "<<point<<" cellId= "<<cellId<<std::endl;
+
+    if (status != vtkm::ErrorCode::Success)
+    {
+      this->RaiseError(vtkm::ErrorString(status));
+    }
+  }
+};
+std::vector<vtkm::FloatDefault>
+InterpFieldToSubPlanes(const std::vector<vtkm::FloatDefault> &input, int numPhi, int nPlanesBetween, int numNodes)
+{
+  std::vector<vtkm::FloatDefault> result;
+  if (nPlanesBetween == 0 && nWedge == 1)
+    result = input;
+  else
+  {
+    vtkm::FloatDefault dT = static_cast<vtkm::FloatDefault>(1)/static_cast<vtkm::FloatDefault>(nPlanesBetween+1);
+
+    int cnt = 0;
+    for (int i = 0; i < nWedge; i++)
+    {
+      //std::cout<<"N= "<<i<<std::endl;
+      for (int j = 0; j < numPhi; j++)
+      {
+        //Add the first plane.
+        //std::cout<<" J= "<<j<<" : cnt= "<<cnt<<std::endl;
+        for (int k = 0; k < numNodes; k++)
+          result.push_back(input[j*numNodes + k]);
+        cnt++;
+
+        int offsetP0 = j*numNodes;
+        int offsetP1 = (j+1)*numNodes;
+        if (j == numPhi-1)
+          offsetP1 = 0;
+
+        vtkm::FloatDefault t = dT;
+        for (int p = 0; p < nPlanesBetween; p++)
+        {
+          //std::cout<<"  Interp: "<<t<<" ("<<offsetP0/numNodes<<" "<<offsetP1/numNodes<<") : cnt= "<<cnt<<std::endl;
+          for (int k = 0; k < numNodes; k++)
+          {
+            auto v0 = input[offsetP0 + k];
+            auto v1 = input[offsetP1 + k];
+            auto v = v0 + t*(v1-v0);
+            result.push_back(v);
+          }
+          t += dT;
+          cnt++;
+        }
+      }
+    }
+    //std::cout<<"Interp: nW= "<<nWedge<<" "<<numNodes<<" "<<numPhi<<" x "<<nPlanesBetween<<" --> "<<result.size()<<std::endl;
+    //std::cout<<"cnt= "<<cnt<<std::endl;
+  }
+
+  return result;
+}
+void
+READVAR(const std::string &vname, std::vector<vtkm::FloatDefault> &arr, adiosS *data, bool doInterp=true, bool extendFull=true)
+{
+    auto v = data->io.InquireVariable<double>(vname);
+    //auto x = v.AllStepsBlocksInfo();
+    //std::cout<<" x: "<<x.size()<<" "<<x[0][0].Step<<std::endl;
+
+    std::vector<double> tmp;
+    data->engine.Get(v, tmp, adios2::Mode::Sync);
+
+    arr.resize(tmp.size());
+    std::transform(tmp.begin(), tmp.end(), arr.begin(), [](double x) {return static_cast<float>(x);});
+
+    if (doInterp)
+      arr = InterpFieldToSubPlanes(arr, numPlanesInFile, planesBetween, numNodes);
+}
+adios2::StepStatus
+readVar(const std::string &vname, adiosS *data, vtkm::cont::DataSet &ds)
+{
+    adios2::StepStatus status;
+
+    status = data->engine.BeginStep();
+    if (status != adios2::StepStatus::OK)
+        return status;
+
+    std::cout<<"Reading Step= "<<data->engine.CurrentStep()<<std::endl;
+    std::vector<vtkm::FloatDefault> arr;
+    READVAR(vname, arr, data);
+
+    if (!ds.HasField(vname))
+    {
+        auto ah = vtkm::cont::make_ArrayHandle(arr, vtkm::CopyFlag::On);
+        ds.AddField(vtkm::cont::make_FieldPoint(vname, ah));
+    }
+    else
+    {
+        auto f = ds.GetField(vname).GetData();
+        vtkm::cont::ArrayHandle<vtkm::FloatDefault> fieldAH;
+        fieldAH = f.Cast<vtkm::cont::ArrayHandle<vtkm::FloatDefault>>();
+        auto portal = fieldAH.WritePortal();
+        for (int i = 0; i < arr.size(); i++)
+            portal.Set(i, arr[i]);
+    }
+
+    return status;
+}
+
+int main(int argc, char** argv)
+{
+  MPI_Init(&argc, &argv);
+
+  auto opts = vtkm::cont::InitializeOptions::DefaultAnyDevice;
+  auto config = vtkm::cont::Initialize(argc, argv, opts);
+
+  using FieldHandle = vtkm::cont::ArrayHandle<vtkm::Vec<double,3>>;
+  using FieldType = vtkm::worklet::particleadvection::VelocityField<FieldHandle>;
+  using GridEvalType = vtkm::worklet::particleadvection::GridEvaluator<FieldType>;
+  using RK4Type = vtkm::worklet::particleadvection::RK4Integrator<GridEvalType>;
+  using Stepper = vtkm::worklet::particleadvection::Stepper<RK4Type, GridEvalType>;
+
+  if (argc < 4)
+  {
+    std::cerr<<"Usage: "<<argv[0]<<" dataFile numSeeds maxPunctures [options]"<<std::endl;
+    std::cerr<<config.Usage<<std::endl;
+    return -1;
+  }
+
+  if (1)
+  {
+    bool fullGrid = true;
+    std::string dataDir = std::string(argv[2]);
+    std::map<std::string, std::string> args;
+    args["--dir"] = dataDir;
+
+    adios = new adios2::ADIOS;
+    adiosStuff["mesh"] = new adiosS(adios, "/xgc.mesh.bp", "mesh", args);
+    adiosStuff["data"] = new adiosS(adios, "xgc.3d.bp", "3d", args);
+    adiosStuff["diag"] = new adiosS(adios, "xgc.oneddiag.bp", "oneddiag", args);
+    adiosStuff["units"] = new adiosS(adios, "xgc.units.bp", "units", args);
+    auto ds = ReadMesh(adiosStuff, fullGrid, extendToFull);
+    auto status = readVar("dpot", adiosStuff["data"], ds);
+    vtkm::io::VTKDataSetWriter writer("xgc0.vtk");
+    writer.WriteDataSet(ds);
+  }
+
+  //fides
+  std::string dataModelFile = std::string(argv[1]);
+  fides::io::DataSetReader reader(dataModelFile);
+
+  std::unordered_map<std::string, std::string> paths;
+  paths["mesh"] = std::string(argv[2]) + "/";
+  paths["3d"] = std::string(argv[2]) + "/";
+  paths["diag"] = std::string(argv[2]) + "/";
+  paths["units"] = std::string(argv[2]) + "/";
+  paths["bfield"] = std::string(argv[2]) + "/";
+
+  auto metaData = reader.ReadMetaData(paths);
+  int addPlanes = 0;
+
+  fides::metadata::MetaData selections;
+
+  /*
+  fides::metadata::Index idx(2);
+  selections.Set(fides::keys::STEP_SELECTION(), idx);
+  */
+
+  if (addPlanes > 0)
+  {
+    fides::metadata::Size numAddPlanes(2);
+    selections.Set(fides::keys::fusion::PLANE_INSERTION(), numAddPlanes);
+  }
+
+  /*
+  fides::metadata::Bool addR(true), addPhi(true), addPsi(true);
+  selections.Set(fides::keys::fusion::ADD_R_FIELD(), addR);
+  selections.Set(fides::keys::fusion::ADD_PHI_FIELD(), addPhi);
+  selections.Set(fides::keys::fusion::ADD_PSI_FIELD(), addPsi);
+  */
+
+  vtkm::cont::PartitionedDataSet output = reader.ReadDataSet(paths, selections);
+  if (output.GetNumberOfPartitions() == 0)
+  {
+    throw std::runtime_error("No output from XGC reader");
+  }
+  auto ds = output.GetPartition(0);
+
+
+
+  vtkm::Id numPlanes = 48; //4 + 4*(addPlanes-1);
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> bfield;
+  vtkm::cont::ArrayHandle<vtkm::Vec3f> B3D;
+  ds.GetField("bfield").GetData().AsArrayHandle(bfield);
+  vtkm::Id n = bfield.GetNumberOfValues() / 3;
+  B3D.Allocate(n*numPlanes);
+
+  auto portalB3D = B3D.WritePortal();
+  auto portalB = bfield.ReadPortal();
+  vtkm::Id ii = 0;
+  for (vtkm::Id p = 0; p < numPlanes; p++)
+  {
+    for (vtkm::Id i = 0; i < n; i++)
+    {
+      auto r = portalB.Get(i*3 + 0);
+      auto z = portalB.Get(i*3 + 1);
+      auto t = portalB.Get(i*3 + 2);
+
+      r = 0.01;
+      z = 0.01;
+      t = 0.5;
+
+      auto X = r*vtkm::Cos(t);
+      auto Y = r*vtkm::Sin(t);
+      auto Z = z;
+
+      vtkm::Vec3f v(X,Z,Y); //v(X,Y,Z);
+      portalB3D.Set(ii++, v);
+    }
+  }
+
+  ds.AddPointField("B", B3D);
+
+  ds.PrintSummary(std::cout);
+
+
+
+  vtkm::io::VTKDataSetWriter writer("xgc.vtk");
+  writer.WriteDataSet(ds);
+
+  std::cout<<"Locator test"<<std::endl;
+  vtkm::cont::CellLocatorGeneral locator;
+  locator.SetCellSet(ds.GetCellSet());
+  locator.SetCoordinates(ds.GetCoordinateSystem());
+  locator.Update();
+
+  std::vector<vtkm::Vec3f> pts = {{1.5, 1.5, 0}};
+  auto points = vtkm::cont::make_ArrayHandle(pts, vtkm::CopyFlag::On);
+  vtkm::cont::ArrayHandle<vtkm::Id> cellIds;
+  vtkm::cont::ArrayHandle<vtkm::Vec3f> pcoords;
+
+  vtkm::worklet::DispatcherMapField<FindCellWorklet> dispatcher;
+  dispatcher.Invoke(points, locator, cellIds, pcoords);
+
+  /*
+  for (const auto& p : pts)
+  {
+    vtkm::Id cellId = -1;
+    vtkm::Vec3f pcoords;
+    auto status = locator.FindCell(p, cellId, pcoords);
+
+    std::cout<<p<<":   "<<cellId<<" "<<pcoords<<std::endl;
+  }
+  */
+
+  MPI_Finalize();
+
+#if 0
+
+  std::string fname = argv[1];
+  vtkm::Id numSeeds = std::stoi(argv[3]);
+  vtkm::Id maxPunctures = std::stoi(argv[3]);
+
+  /*
+  std::string fname = "/media/dpn/disk2TB/proj/vtkm/poincare/xgc_bfield.vtk";
+  fname = "/media/dpn/disk2TB/proj/vtkm/poincare/vtk-m/data/data/rectilinear/fusion.vtk";
+  fname = "/home/dpn/proj/vtkm/poincare/fusion.vtk";
+  fname = "/media/dpn/disk2TB/proj/vtkm/poincare/xgc_300.vtk";
+  //fname = "/media/dpn/disk2TB/proj/vtkm/poincare/xgc_bfield.vtk";
+  */
+
+  vtkm::io::VTKDataSetReader reader(fname);
+
+  auto ds = reader.ReadDataSet();
+
+  FieldHandle BField;
+  ds.GetField("B").GetData().AsArrayHandle(BField);
+
+  const vtkm::FloatDefault stepSize = 0.005;
+
+  FieldType velocities(BField);
+  GridEvalType eval(ds, velocities);
+  Stepper rk4(eval, stepSize);
+
+  vtkm::FloatDefault x0 = 1.65, x1 = 2.25;
+  x0 = 1.7; x1 = 2.0;
+  vtkm::Id maxSteps = maxPunctures * 10000;
+
+  vtkm::FloatDefault dx = (x1-x0) / (float)(numSeeds-1);
+  vtkm::FloatDefault x = x0;
+
+  std::vector<vtkm::Particle> pts;
+  for (vtkm::Id id = 0; id < numSeeds; id++, x+=dx)
+    pts.push_back({vtkm::Particle({x, 0, 0}, id)});
+
+  //std::vector<vtkm::Particle> pts = {vtkm::Particle({0, 1.5, 0}, 0)};
+  /*
+  std::vector<vtkm::Particle> pts = {vtkm::Particle({1.4, 0, 0}, 0),
+                                     vtkm::Particle({1.5, 0, 0}, 1),
+                                     vtkm::Particle({1.6, 0, 0}, 2),
+                                     vtkm::Particle({1.7, 0, 0}, 3)};
+  */
+  auto seedArray = vtkm::cont::make_ArrayHandle(pts, vtkm::CopyFlag::Off);
+
+  vtkm::worklet::Poincare p;
+  auto seeds = vtkm::cont::make_ArrayHandle(pts, vtkm::CopyFlag::On);
+  vtkm::Plane<> plane({0,0,0}, {0,1,0});
+  auto t1 = std::chrono::high_resolution_clock::now();
+  auto res = p.Run(rk4, seeds, plane, maxSteps, maxPunctures, true);
+  auto t2 = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> dt = std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
+  std::cout<<"Timer= "<<dt.count()<<std::endl;
+
+
+  vtkm::cont::DataSet outDS;
+  outDS.AddCoordinateSystem(vtkm::cont::CoordinateSystem("coords", res.Positions));
+  outDS.SetCellSet(res.PolyLines);
+  vtkm::io::VTKDataSetWriter writer("poincPts.vtk");
+  writer.WriteDataSet(outDS);
+
+  outDS.PrintSummary(std::cout);
+
+  std::ofstream outPts;
+  outPts.open("points.txt");
+  int nPts = res.Positions.GetNumberOfValues();
+  auto portal = res.Positions.ReadPortal();
+  for (int i = 0; i < nPts; i++)
+  {
+    auto pt = portal.Get(i);
+    outPts<<pt[0]<<", "<<pt[1]<<", "<<pt[2]<<std::endl;
+  }
+  outPts.close();
+#endif
+}
+
+#if 0
+int main(int argc, char** argv)
+{
+  if (argc < 3)
+  {
+    std::cerr
+      << "./xgc <name of the json file> <path of data source folder> <optional write data>\n";
+    return 0;
+  }
+
+  bool writeVTK = false;
+  if (argc >= 4)
+    writeVTK = std::atoi(argv[3]) == 1;
+
+  MPI_Init(&argc, &argv);
+
+  std::string dataModelFile = std::string(argv[1]);
+  fides::io::DataSetReader reader(dataModelFile);
+
+  std::unordered_map<std::string, std::string> paths;
+  paths["mesh"] = std::string(argv[2]) + "/";
+  paths["3d"] = std::string(argv[2]) + "/";
+  paths["diag"] = std::string(argv[2]) + "/";
+  paths["units"] = std::string(argv[2]) + "/";
+  paths["bfield"] = std::string(argv[2]) + "/";
+
+  auto metaData = reader.ReadMetaData(paths);
+  int addPlanes = 0;
+
+  fides::metadata::MetaData selections;
+
+  fides::metadata::Index idx(2);
+  selections.Set(fides::keys::STEP_SELECTION(), idx);
+
+  if (addPlanes > 0)
+  {
+    fides::metadata::Size numAddPlanes(2);
+    selections.Set(fides::keys::fusion::PLANE_INSERTION(), numAddPlanes);
+  }
+
+  /*
+  fides::metadata::Bool addR(true), addPhi(true), addPsi(true);
+  selections.Set(fides::keys::fusion::ADD_R_FIELD(), addR);
+  selections.Set(fides::keys::fusion::ADD_PHI_FIELD(), addPhi);
+  selections.Set(fides::keys::fusion::ADD_PSI_FIELD(), addPsi);
+  */
+
+  vtkm::cont::PartitionedDataSet output = reader.ReadDataSet(paths, selections);
+  if (output.GetNumberOfPartitions() == 0)
+  {
+    throw std::runtime_error("No output from XGC reader");
+  }
+  auto ds = output.GetPartition(0);
+
+  vtkm::cont::ArrayHandle<int> tmp;
+  ds.GetField("nphi").GetData().AsArrayHandle(tmp);
+  int numPlanes = tmp.ReadPortal().Get(0);
+  ds.GetField("n_n").GetData().AsArrayHandle(tmp);
+  int ptsPerPlane = tmp.ReadPortal().Get(0);
+
+  vtkm::cont::ArrayHandle<double> bfield;
+  ds.GetField("bfield").GetData().AsArrayHandle(bfield);
+  std::cout<<"BFIELD"<<std::endl;
+  std::cout<<bfield.GetNumberOfValues()<<" nplanes= "<<numPlanes<<std::endl;
+  int nPts = ds.GetNumberOfPoints();
+  std::vector<vtkm::Vec3f> B(nPts);
+
+  std::size_t bidx = 0;
+  auto bfieldPortal = bfield.ReadPortal();
+  for (int i = 0; i < numPlanes*(addPlanes+1); i++)
+    for (int j = 0; j < ptsPerPlane; j++)
+    {
+      double r = bfieldPortal.Get(j*3 + 0);
+      double z = bfieldPortal.Get(j*3 + 1);
+      double phi = bfieldPortal.Get(j*3 + 2);
+      double X = r*cos(phi);
+      double Y = r*sin(phi);
+      double Z = z;
+      B[bidx][0] = r;
+      B[bidx][1] = z;
+      B[bidx][2] = phi;
+      bidx++;
+    }
+
+  auto BArr = vtkm::cont::make_ArrayHandle(B, vtkm::CopyFlag::On);
+  //ds.AddPointField("B", B);
+  //ds.AddField(vtkm::cont::make_FieldPoint("B", B));
+  ds.AddField(vtkm::cont::Field("B", vtkm::cont::Field::Association::POINTS, BArr));
+
+  ds.PrintSummary(std::cout);
+
+  vtkm::io::VTKDataSetWriter wrt("xgc-output.vtk");
+  wrt.WriteDataSet(ds);
+
+  MPI_Finalize();
+
+#if 0
+  MPI_Init(&argc, &argv);
+
+  if (argc < 3)
+  {
+    std::cerr
+      << "./xgc <name of the json file> <path of data source folder> <optional write data>\n";
+    return 0;
+  }
+
+  std::string dataModelFile = std::string(argv[1]);
+  fides::io::DataSetReader reader(dataModelFile);
+
+  std::unordered_map<std::string, std::string> paths;
+  paths["mesh"] = std::string(argv[2]) + "/";
+  paths["3d"] = std::string(argv[2]) + "/";
+//  paths["diag"] = std::string(argv[2]) + "/";
+//  paths["units"] = std::string(argv[2]) + "/";
+  paths["bfield"] = std::string(argv[2]) + "/";
+
+  auto metaData = reader.ReadMetaData(paths);
+  fides::metadata::MetaData selections;
+  fides::metadata::Index idx(2);
+  selections.Set(fides::keys::STEP_SELECTION(), idx);
+
+  vtkm::cont::PartitionedDataSet output = reader.ReadDataSet(paths, selections);
+
+  output.PrintSummary(std::cout);
+
+
+  MPI_Finalize();
+  return 0;
+#endif
+}
+#endif
+
+#if 0
+
+#include <vtkm/cont/DataSet.h>
+#include <vtkm/cont/Initialize.h>
+#include <vtkm/filter/Streamline.h>
+#include <vtkm/io/VTKDataSetReader.h>
+#include <vtkm/io/VTKDataSetWriter.h>
+
+// Example computing streamlines.
+// An example vector field is available in the vtk-m data directory: magField.vtk
+// Example usage:
+//   this will advect 200 particles 50 steps using a step size of 0.01
+//
+// Particle_Advection <path-to-data-dir>/magField.vtk vec 200 50 0.01 output.vtk
+//
+
+int main(int argc, char** argv)
+{
+  auto opts = vtkm::cont::InitializeOptions::DefaultAnyDevice;
+  auto config = vtkm::cont::Initialize(argc, argv, opts);
+
+  if (argc < 8)
+  {
+    std::cerr << "Usage: " << argv[0]
+              << "dataFile varName numSeeds numSteps stepSize outputFile [options]" << std::endl;
+    std::cerr << "where options are: " << std::endl << config.Usage << std::endl;
+    return -1;
+  }
+
+  std::string dataFile = argv[1];
+  std::string varName = argv[2];
+  vtkm::Id numSeeds = std::stoi(argv[3]);
+  vtkm::Id numSteps = std::stoi(argv[4]);
+  vtkm::FloatDefault stepSize = std::stof(argv[5]);
+  std::string outputFile = argv[6];
+
+  vtkm::cont::DataSet ds;
+
+  if (dataFile.find(".vtk") != std::string::npos)
+  {
+    vtkm::io::VTKDataSetReader rdr(dataFile);
+    ds = rdr.ReadDataSet();
+  }
+  else
+  {
+    std::cerr << "Unsupported data file: " << dataFile << std::endl;
+    return -1;
+  }
+
+  //create seeds randomly placed withing the bounding box of the data.
+  vtkm::Bounds bounds = ds.GetCoordinateSystem().GetBounds();
+  std::vector<vtkm::Particle> seeds;
+
+  for (vtkm::Id i = 0; i < numSeeds; i++)
+  {
+    vtkm::Particle p;
+    vtkm::FloatDefault rx = (vtkm::FloatDefault)rand() / (vtkm::FloatDefault)RAND_MAX;
+    vtkm::FloatDefault ry = (vtkm::FloatDefault)rand() / (vtkm::FloatDefault)RAND_MAX;
+    vtkm::FloatDefault rz = (vtkm::FloatDefault)rand() / (vtkm::FloatDefault)RAND_MAX;
+    p.Pos[0] = static_cast<vtkm::FloatDefault>(bounds.X.Min + rx * bounds.X.Length());
+    p.Pos[1] = static_cast<vtkm::FloatDefault>(bounds.Y.Min + ry * bounds.Y.Length());
+    p.Pos[2] = static_cast<vtkm::FloatDefault>(bounds.Z.Min + rz * bounds.Z.Length());
+    p.ID = i;
+    seeds.push_back(p);
+  }
+  auto seedArray = vtkm::cont::make_ArrayHandle(seeds, vtkm::CopyFlag::Off);
+
+  //compute streamlines
+  vtkm::filter::Streamline streamline;
+
+  streamline.SetStepSize(stepSize);
+  streamline.SetNumberOfSteps(numSteps);
+  streamline.SetSeeds(seedArray);
+
+  streamline.SetActiveField(varName);
+  auto output = streamline.Execute(ds);
+
+  vtkm::io::VTKDataSetWriter wrt(outputFile);
+  wrt.WriteDataSet(output);
+
+  return 0;
+}
+
+#endif
