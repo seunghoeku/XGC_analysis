@@ -1,0 +1,11 @@
+cmake \
+ -DVTKm_NO_DEPRECATED_VIRTUAL=ON \
+ -DVTKm_ENABLE_OPENMP=ON \
+ -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+ -DFides_DIR=/home/dpn/proj/vtkm/XGCLocator/fides/install/lib/cmake/fides \
+ -DADIOS2_DIR=/apps/ADIOS/install_par/lib/cmake/adios2 \
+ -DVTKm_USE_DOUBLE_PRECISION=ON \
+ -DVTKm_ENABLE_EXAMPLES=ON \
+ -DVTKm_ENABLE_TESTING=OFF \
+ -DBUILD_TESTING=OFF \
+../vtk-m
