@@ -13,6 +13,28 @@ Each reader will read about (N/M) number of blocks one by one.
 """
 
 
+def range_split(n, size, rank):
+    return [slice(x[0], x[-1] + 1) for x in np.array_split(range(n), size)][rank]
+
+
+def adios2_block_read(IO, reader, varname, slice=None, dtype=np.double):
+    if slice is None:
+        slice = slice(None, None, None)
+    istep = reader.CurrentStep()
+    block_list = reader.BlocksInfo(varname, istep)
+    arr_list = list()
+    for block in block_list[slice]:
+        shape = tuple([int(x) for x in block["Count"].strip().split(",")])
+        arr = np.zeros(shape, dtype=dtype)
+        arr_list.append(arr)
+
+        var = IO.InquireVariable(varname)
+        var.SetBlockSelection(int(block["BlockID"]))
+        reader.Get(var, arr)
+
+    return arr_list
+
+
 def adios2_get_block_list(reader, varname, istep):
     block_list = reader.BlocksInfo(varname, istep)
     shape_list = list()
