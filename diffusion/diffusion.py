@@ -1,6 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
+from matplotlib import colors
 import adios2
+from mpi4py import MPI
 
 
 # set the colormap and centre the colorbar
@@ -27,7 +30,10 @@ class MidpointNormalize(colors.Normalize):
 
 
 class Diffusion():
-    def __init__(self, path='./', aggregate=True, engine="SST", channel_name="diffusion"):
+    def __init__(self, path='./', aggregate=True, engine="SST", channel_name="diffusion", comm=MPI.COMM_WORLD):
+        self.comm = comm
+        self.rank = comm.Get_rank()
+        self.size = comm.Get_size()
 
         self.aggregate = aggregate
 
@@ -72,7 +78,10 @@ class Diffusion():
                     sigma_rs, sigma_Ens = self.aggregate_stats()
                     Deff = sigma_rs/(2*self.dt*tindex)
                     chieff = sigma_Ens/(2*self.dt*tindex)
-                    self.plot_regions(Deff, chieff)
+                    try:
+                        self.plot_regions(Deff, chieff)
+                    except:
+                        print ("ERROR: plotting error")
                 else:
                     sigma_rs, sigma_Ens = self.calc_sigma(self.dr_stds[tindex], self.En_dr_stds[tindex], 
                                                           self.dr_avgs[tindex] , self.En_dr_avgs[tindex],
@@ -80,15 +89,20 @@ class Diffusion():
                     Deff = sigma_rs/(2*self.dt*tindex)
                     chieff = sigma_Ens/(2*self.dt*tindex)
                     self.plot_tri2d(Deff, chieff)
+            else:
+                if self.rank == 0:
+                    print("No more data")
+                break
 
 
 
-    def setup_adios(engine, channel_name):
+
+    def setup_adios(self, engine, channel_name):
         """setup adios2 reader"""
         self.adios = adios2.ADIOS()
-        self.IO = self.adios.DeclareIO(gen_io_name(0))
+        self.IO = self.adios.DeclareIO("diffusion_read")
         self.IO.SetEngine(engine)
-        self.reader = self.IO.Open(self.channel_name, adios2.Mode.Read)
+        self.reader = self.IO.Open(channel_name, adios2.Mode.Read, self.comm)
         #self.IO.SetParameters()
 
 
@@ -96,16 +110,58 @@ class Diffusion():
     def read_stats(self,inds=Ellipsis):
         #these come from XGC gathered locally on the rank, so this is an all-reduce performed by ADIOS2
         #these are not normalized to the 1/N factor, and so need to be done somewhere (N=marker_den)
-        var = self.IO.InquireVariable('dr_std')
-        dr_std = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('dr_average')
-        dr_avg = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('En_dr_std')
-        En_dr_std = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('En_dr_average')
-        En_dr_avg = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('marker_den')
-        marker_den = self.reader.Get(var, )[inds]
+
+        istep = self.reader.CurrentStep()
+        shape_list = adios2_get_block_list(self.reader, "i_table", istep)
+        my_block_list = np.array_split(shape_list, size)
+
+        ## Read block by block
+        for block in my_block_list[self.rank]:
+
+            ## Prepare array
+            i_ntLV = np.zeros(1, dtype=np.int64)
+            i_ntriangles = np.zeros(1, dtype=np.int64)
+            i_table = np.zeros(block["shape"], dtype=np.double)
+
+            ## Inquire var info
+            var_i_ntLV = self.IO.InquireVariable("i_ntLV")
+            var_i_ntriangles = self.IO.InquireVariable("i_ntriangles")
+            var_i_table = self.IO.InquireVariable("i_table")
+
+            ## Set block info
+            var_i_ntLV.SetBlockSelection(block["id"])
+            var_i_ntriangles.SetBlockSelection(block["id"])
+            var_i_table.SetBlockSelection(block["id"])
+
+            ## Read
+            self.reader.Get(var_i_ntLV, i_ntLV)
+            self.reader.Get(var_i_ntriangles, i_ntriangles)
+            self.reader.Get(var_i_table, i_table)
+            self.reader.PerformGets()
+
+            print(
+                istep,
+                rank,
+                block["id"],
+                block["shape"],
+                np.min(i_table),
+                np.max(i_table),
+                i_ntLV.item(),
+                i_ntriangles.item(),
+            )
+
+        ## jyc: Need to convert table data to dr/En_dr data
+        # var = self.IO.InquireVariable('dr_std')
+        # dr_std = self.reader.Get(var, )[inds]
+        # var = self.IO.InquireVariable('dr_average')
+        # dr_avg = self.reader.Get(var, )[inds]
+        # var = self.IO.InquireVariable('En_dr_std')
+        # En_dr_std = self.reader.Get(var, )[inds]
+        # var = self.IO.InquireVariable('En_dr_average')
+        # En_dr_avg = self.reader.Get(var, )[inds]
+        # var = self.IO.InquireVariable('marker_den')
+        # marker_den = self.reader.Get(var, )[inds]
+        dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den = np.zeros(10), np.zeros(10), np.zeros(10), np.zeros(10), np.zeros(10)
         return dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den
 
 
@@ -118,7 +174,7 @@ class Diffusion():
         fm.close()
         self.triObj = Triangulation(self.RZ[:,0],self.RZ[:,1],self.tri)
         feq = adios2.open(filename_eq,'r')
-        self.psi_x = feq.read('eq_psi_x')
+        self.psi_x = feq.read('eq_x_psi')
         feq.close()
         
 
@@ -135,8 +191,8 @@ class Diffusion():
                              psin0=1.0, psin1 = 1.01, dpsin = 0.01):
         """Create list of arrays of indices defining regions to aggregate over"""
         Nthetas = int((theta1-theta0)/dtheta)
-        thetas= theta0 + np.arange(Nthetas)*dtheta
-        thetas *= np.pi/180 #convert deg. to rad.
+        thetas= theta0 + np.arange(Nthetas, dtype=np.double)*dtheta
+        thetas *= np.pi/180.0 #convert deg. to rad.
         Npsins = int((psin1-psin0)/dpsin)
         psins= psin0 + np.arange(Npsins)*dpsin
 
@@ -156,9 +212,9 @@ class Diffusion():
 
     def aggregate_stats(self, tindex=-1):
         """Aggregate the sigmas over regions defined by create_regions"""
-        sigma_rs = np.zeros((len(regions),))
-        sigma_Ens = np.zeros((len(regions),))
-        for i,region in enumerate(regions):
+        sigma_rs = np.zeros((len(self.regions),))
+        sigma_Ens = np.zeros((len(self.regions),))
+        for i,region in enumerate(self.regions):
             sigma_rs[i], sigma_Ens[i] = self.calc_sigma(self.dr_stds[tindex][region], self.En_dr_stds[tindex][region], 
                                            self.dr_avgs[tindex][region] , self.En_dr_avgs[tindex][region],
                                            self.marker_dens[tindex][region])
@@ -203,4 +259,49 @@ class Diffusion():
         axs[1].tripcolor(self.triObj,chieff)
 
 
-            
+"""
+Adios helper functions
+"""
+def range_split(n, size, rank):
+    return [slice(x[0], x[-1] + 1) for x in np.array_split(range(n), size)][rank]
+
+
+def adios2_block_read(IO, reader, varname, slice=None, dtype=np.double):
+    if slice is None:
+        slice = slice(None, None, None)
+    istep = reader.CurrentStep()
+    block_list = reader.BlocksInfo(varname, istep)
+    arr_list = list()
+    for block in block_list[slice]:
+        shape = tuple([int(x) for x in block["Count"].strip().split(",")])
+        arr = np.zeros(shape, dtype=dtype)
+        arr_list.append(arr)
+
+        var = IO.InquireVariable(varname)
+        var.SetBlockSelection(int(block["BlockID"]))
+        reader.Get(var, arr)
+
+    return arr_list
+
+
+def adios2_get_block_list(reader, varname, istep):
+    block_list = reader.BlocksInfo(varname, istep)
+    shape_list = list()
+    for block in block_list:
+        blockid = int(block["BlockID"])
+        shape = block["Count"]
+        lshape = tuple([int(x) for x in shape.strip().split(",")])
+        shape_list.append({"id": blockid, "shape": lshape})
+
+    return shape_list
+
+
+if __name__ == "__main__":
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    diffusion = Diffusion(engine="BP4", channel_name="xgc.tracer_diag.bp")
+    diffusion.workflow()
+
