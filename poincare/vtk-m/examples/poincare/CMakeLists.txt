@@ -13,7 +13,7 @@ project(Poincare CXX)
 #Find the VTK-m package
 find_package(VTKm REQUIRED QUIET)
 find_package(ADIOS2 REQUIRED)
-find_package(Fides REQUIRED)
+#find_package(Fides REQUIRED)
 
 #add_executable(Poincare Poincare.cxx io.cxx io.h)
 #add_executable(Simple Simple.cxx)
@@ -29,8 +29,8 @@ add_executable(Simple2.3 Simple2.3.cxx)
 #target_link_libraries(Simple3 PRIVATE vtkm_filter vtkm_io vtkm_rendering fides)
 #target_link_libraries(Simple4 PRIVATE vtkm_filter vtkm_io vtkm_rendering fides)
 #target_link_libraries(Simple2.2 PRIVATE vtkm_filter vtkm_io vtkm_rendering fides)
-#target_link_libraries(Simple2.3 PRIVATE vtkm_filter vtkm_io vtkm_rendering fides)
-target_link_libraries(Simple2.3 PRIVATE vtkm_filter vtkm_io fides)
+##target_link_libraries(Simple2.3 PRIVATE vtkm_filter vtkm_io vtkm_rendering fides)
+target_link_libraries(Simple2.3 PRIVATE vtkm_filter vtkm_io adios2::adios2)
 #target_link_libraries(SimpleFides PRIVATE vtkm_filter vtkm_io fides)
 #vtkm_add_target_information(Poincare
 #                            DROP_UNUSED_SYMBOLS MODIFY_CUDA_FLAGS
