@@ -182,7 +182,6 @@ class Diffusion:
                 i_dE_std = sqrt(i_dE_squared_average - i_dE_average)
                 e_dE_std = sqrt(e_dE_squared_average - e_dE_average)
 
-                dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den
                 dr_std[itri] += i_dr_std + e_dr_std
                 En_dr_std[itri] += i_dE_std + e_dE_std
                 dr_avg[itri] += i_dr_average + e_dr_average
