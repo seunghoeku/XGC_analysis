@@ -30,3 +30,11 @@ cmake \
 make
 
 ```
+
+# Run on Summit
+Below is an example to run on a cyclone dataset on Summit.
+
+```
+jsrun -n1 -a1 -c20 -g1 ./build/examples/poincare/Simple2.3  --vField B --dir /gpfs/alpine/proj-shared/csc143/pugmire/summit/vtkm/data/POINC --traces 0 --useHighOrder --turbulence 1 --range 2.5 3.5 --numSeeds 10000 --gpu  --worklet 2 --output OUTPUT --numPunc 200 --gpuParams 256 128 --stepSize 0.1
+
+```
