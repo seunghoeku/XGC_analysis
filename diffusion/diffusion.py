@@ -112,31 +112,31 @@ class Diffusion():
         #these are not normalized to the 1/N factor, and so need to be done somewhere (N=marker_den)
 
         istep = self.reader.CurrentStep()
-        shape_list = adios2_get_block_list(self.reader, "i_table", istep)
+        shape_list = adios2_get_block_list(self.reader, "table", istep)
         my_block_list = np.array_split(shape_list, size)
 
         ## Read block by block
         for block in my_block_list[self.rank]:
 
             ## Prepare array
-            i_ntLV = np.zeros(1, dtype=np.int64)
-            i_ntriangles = np.zeros(1, dtype=np.int64)
-            i_table = np.zeros(block["shape"], dtype=np.double)
+            ntLV = np.zeros(1, dtype=np.int64)
+            ntriangles = np.zeros(1, dtype=np.int64)
+            table = np.zeros(block["shape"], dtype=np.double)
 
             ## Inquire var info
-            var_i_ntLV = self.IO.InquireVariable("i_ntLV")
-            var_i_ntriangles = self.IO.InquireVariable("i_ntriangles")
-            var_i_table = self.IO.InquireVariable("i_table")
+            var_ntLV = self.IO.InquireVariable("ntLV")
+            var_ntriangles = self.IO.InquireVariable("ntriangles")
+            var_table = self.IO.InquireVariable("table")
 
             ## Set block info
-            var_i_ntLV.SetBlockSelection(block["id"])
-            var_i_ntriangles.SetBlockSelection(block["id"])
-            var_i_table.SetBlockSelection(block["id"])
+            var_ntLV.SetBlockSelection(block["id"])
+            var_ntriangles.SetBlockSelection(block["id"])
+            var_table.SetBlockSelection(block["id"])
 
             ## Read
-            self.reader.Get(var_i_ntLV, i_ntLV)
-            self.reader.Get(var_i_ntriangles, i_ntriangles)
-            self.reader.Get(var_i_table, i_table)
+            self.reader.Get(var_ntLV, ntLV)
+            self.reader.Get(var_ntriangles, ntriangles)
+            self.reader.Get(var_table, table)
             self.reader.PerformGets()
 
             print(
@@ -144,10 +144,10 @@ class Diffusion():
                 rank,
                 block["id"],
                 block["shape"],
-                np.min(i_table),
-                np.max(i_table),
-                i_ntLV.item(),
-                i_ntriangles.item(),
+                np.min(table),
+                np.max(table),
+                ntLV.item(),
+                ntriangles.item(),
             )
 
         ## jyc: Need to convert table data to dr/En_dr data
