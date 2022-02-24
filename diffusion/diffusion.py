@@ -4,6 +4,7 @@ from matplotlib.tri import Triangulation
 from matplotlib import colors
 import adios2
 from mpi4py import MPI
+from math import sqrt
 
 
 # set the colormap and centre the colorbar
@@ -83,8 +84,8 @@ class Diffusion:
                     chieff = sigma_Ens / (2 * self.dt * tindex)
                     try:
                         self.plot_regions(Deff, chieff)
-                    except:
-                        print("ERROR: plotting error")
+                    except Exception as e:
+                        print("ERROR: plotting error:", e)
                 else:
                     sigma_rs, sigma_Ens = self.calc_sigma(
                         self.dr_stds[tindex],
@@ -113,6 +114,15 @@ class Diffusion:
     def read_stats(self, inds=Ellipsis):
         # these come from XGC gathered locally on the rank, so this is an all-reduce performed by ADIOS2
         # these are not normalized to the 1/N factor, and so need to be done somewhere (N=marker_den)
+
+        ntri = len(self.tri)
+        dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den = (
+            np.zeros(ntri),
+            np.zeros(ntri),
+            np.zeros(ntri),
+            np.zeros(ntri),
+            np.zeros(ntri),
+        )
 
         istep = self.reader.CurrentStep()
         shape_list = adios2_get_block_list(self.reader, "table", istep)
@@ -153,25 +163,39 @@ class Diffusion:
                 ntriangles.item(),
             )
 
-        ## jyc: Need to convert table data to dr/En_dr data
-        # var = self.IO.InquireVariable('dr_std')
-        # dr_std = self.reader.Get(var, )[inds]
-        # var = self.IO.InquireVariable('dr_average')
-        # dr_avg = self.reader.Get(var, )[inds]
-        # var = self.IO.InquireVariable('En_dr_std')
-        # En_dr_std = self.reader.Get(var, )[inds]
-        # var = self.IO.InquireVariable('En_dr_average')
-        # En_dr_avg = self.reader.Get(var, )[inds]
-        # var = self.IO.InquireVariable('marker_den')
-        # marker_den = self.reader.Get(var, )[inds]
-        dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den = (
-            np.zeros(10),
-            np.zeros(10),
-            np.zeros(10),
-            np.zeros(10),
-            np.zeros(10),
+            ## Read each row and update dr/En_dr from table info
+            for row in table:
+                itri = int(row[0])
+                i_dr_average = row[1]
+                i_dr_squared_average = row[2]
+                i_dE_average = row[3]
+                i_dE_squared_average = row[4]
+                i_marker_den = row[5]
+                e_dr_average = row[6]
+                e_dr_squared_average = row[7]
+                e_dE_average = row[8]
+                e_dE_squared_average = row[9]
+                e_marker_den = row[10]
+
+                i_dr_std = sqrt(i_dr_squared_average - i_dr_average)
+                e_dr_std = sqrt(e_dr_squared_average - e_dr_average)
+                i_dE_std = sqrt(i_dE_squared_average - i_dE_average)
+                e_dE_std = sqrt(e_dE_squared_average - e_dE_average)
+
+                dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den
+                dr_std[itri] += i_dr_std + e_dr_std
+                En_dr_std[itri] += i_dE_std + e_dE_std
+                dr_avg[itri] += i_dr_average + e_dr_average
+                En_dr_avg[itri] += i_dE_average + e_dE_average
+                marker_den[itri] += i_marker_den + e_marker_den
+
+        return (
+            dr_std[inds],
+            En_dr_std[inds],
+            dr_avg[inds],
+            En_dr_avg[inds],
+            marker_den[inds],
         )
-        return dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den
 
     def read_mesh(self, filename_mesh, filename_eq):
         """Read in mesh info from xgc.mesh.bp"""
