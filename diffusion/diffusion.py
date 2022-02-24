@@ -177,10 +177,10 @@ class Diffusion:
                 e_dE_squared_average = row[9]
                 e_marker_den = row[10]
 
-                i_dr_std = sqrt(i_dr_squared_average - i_dr_average)
-                e_dr_std = sqrt(e_dr_squared_average - e_dr_average)
-                i_dE_std = sqrt(i_dE_squared_average - i_dE_average)
-                e_dE_std = sqrt(e_dE_squared_average - e_dE_average)
+                i_dr_std = sqrt(i_dr_squared_average - i_dr_average**2)
+                e_dr_std = sqrt(e_dr_squared_average - e_dr_average**2)
+                i_dE_std = sqrt(i_dE_squared_average - i_dE_average**2)
+                e_dE_std = sqrt(e_dE_squared_average - e_dE_average**2)
 
                 dr_std[itri] += i_dr_std + e_dr_std
                 En_dr_std[itri] += i_dE_std + e_dE_std
