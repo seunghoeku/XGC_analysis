@@ -104,8 +104,8 @@ class Diffusion:
 
     def setup_adios(self, engine, channel_name):
         """setup adios2 reader"""
-        self.adios = adios2.ADIOS()
-        self.IO = self.adios.DeclareIO("diffusion_read")
+        self.adios = adios2.ADIOS("adios2cfg.xml")
+        self.IO = self.adios.DeclareIO("tracer_diag")
         self.IO.SetEngine(engine)
         self.reader = self.IO.Open(channel_name, adios2.Mode.Read, self.comm)
         # self.IO.SetParameters()
