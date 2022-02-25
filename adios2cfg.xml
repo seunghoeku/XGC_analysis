@@ -23,4 +23,8 @@
         <!-- Output of heatload analysis code -->
         <engine type="FileStream"></engine>
     </io>
+    <io name="tracer_diag">
+        <!-- Output of diffusion analysis code -->
+        <engine type="FileStream"></engine>
+    </io>
 </adios-config>
