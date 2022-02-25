@@ -233,12 +233,13 @@ class Diffusion:
             for p in range(Npsins - 1):
                 inds = np.where(
                     (psins[p] >= self.psin)
-                    & (psins[p + 1] < self.psin)(thetas[p] >= self.theta)
+                    & (psins[p + 1] < self.psin)
+                    & (thetas[p] >= self.theta)
                     & (thetas[t + 1] < self.theta)
                 )[0]
                 regions.append(inds)
                 regpsin.append((psins[p + 1] + psins[p]) / 2.0)
-                regtheta.append((theta[p + 1] + theta[p]) / 2.0)
+                regtheta.append((thetas[p + 1] + thetas[p]) / 2.0)
 
         return regions, regpsin, regtheta
 
@@ -256,7 +257,7 @@ class Diffusion:
             )
         return sigma_rs, sigma_Ens
 
-    def calc_sigma(dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den):
+    def calc_sigma(self, dr_std, En_dr_std, dr_avg, En_dr_avg, marker_den):
         """Calculate the true std. dev. of markers"""
         # calculate sigma_r and sigma_En
         sigma_r = dr_std / marker_den - (dr_avg / marker_den) ** 2.0
@@ -301,7 +302,7 @@ class Diffusion:
         plt.colorbar()
         plt.title(title)
 
-    def plot_tri2d(Deff, chieff):
+    def plot_tri2d(self, Deff, chieff):
         fig, axs = plt.subplots(2, 1)
         axs[0].tripcolor(self.triObj, Deff)
         axs[1].tripcolor(self.triObj, chieff)
