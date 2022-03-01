@@ -6,7 +6,7 @@
 #include "particles.hpp"
 #include "flags.hpp"
 #include "sml.hpp"
-#include "heatload.hpp"
+#include "heatload_calc.hpp"
 #ifdef USE_OMP
 #include <omp.h>
 #endif

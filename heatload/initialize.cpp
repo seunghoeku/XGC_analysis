@@ -1,6 +1,6 @@
 #include "sml.hpp"
 #include "adios2.h"
-#include "heatload.hpp"
+#include "heatload_calc.hpp"
 
 extern Simulation sml;
 extern adios2::ADIOS *ad;
