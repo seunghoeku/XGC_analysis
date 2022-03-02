@@ -12,9 +12,6 @@
 
 // extern "C" void set_test_type(int test_type);
 
-Simulation sml; // input parameters that controls simulation. 
-adios2::ADIOS * ad;
-
 int main(int argc, char *argv[]) {
     // Parse command line arguments
     // set_test_type(0);
@@ -35,9 +32,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    adios2::ADIOS adios("adios2cfg.xml");
-    ad = &adios;
+    adios2::ADIOS ad("adios2cfg.xml");
     // run actual routine
-    heatload();
+    heatload_init(&ad);
+    int istep = 1;
+    while (1) {
+        int ret = heatload_step(&ad, istep);
+
+        if (ret == 0)
+            // everything is ok
+            istep++;
+        else if (ret > 0)
+            // wait again
+            continue;
+        else if (ret == -1)
+            // no more data
+            break;
+    }
+    heatload_finalize(&ad);
+
+    return 0;
 }
 

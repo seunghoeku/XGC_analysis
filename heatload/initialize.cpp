@@ -1,16 +1,16 @@
 #include "sml.hpp"
 #include "adios2.h"
 #include "heatload_calc.hpp"
+#include "mpi.h"
 
 extern Simulation sml;
-extern adios2::ADIOS *ad;
 
-void init() {
+void init(adios2::ADIOS *ad) {
     adios2::Engine reader;
     adios2::IO reader_io;
 
     reader_io = ad->DeclareIO("output.units"); // same IO name as in XGC
-    reader = reader_io.Open("xgc.units.bp", adios2::Mode::Read);
+    reader = reader_io.Open("xgc.units.bp", adios2::Mode::Read, MPI_COMM_SELF);
 
     double sml_e_charge, sml_prot_mass;
     double ptl_mass_au, ptl_charge_eu, ptl_e_mass_au, ptl_e_charge_eu;
