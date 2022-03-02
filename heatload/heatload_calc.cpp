@@ -61,7 +61,7 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db) {
                             #pragma omp critical(spupdate)
                             {
 #ifdef USE_OMP
-                                printf("%d: thread rank %d\n", i, omp_get_thread_num());
+                                //printf("%d: thread rank %d\n", i, omp_get_thread_num());
 #endif
                                 sp.side[side].ptl[icond][ip]   =  wp * ws;
                                 sp.side[side].ptl[icond][ip+1] =  wp * ws;

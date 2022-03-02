@@ -177,7 +177,7 @@ adios2::StepStatus Heatload::step()
         ntotal = 0;
         for (int i = 0; i < len_list.size(); i++)
         {
-            LOG << boost::format("%d %d") % i % len_list[i];
+            //LOG << boost::format("%d %d") % i % len_list[i];
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }

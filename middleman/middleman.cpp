@@ -116,6 +116,7 @@ int main(int argc, char *argv[])
         }
 
         istep++;
+        if (istep>10) break;
     }
 
     diffusion.finalize();

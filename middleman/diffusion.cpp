@@ -73,7 +73,7 @@ adios2::StepStatus Diffusion::step()
 
             // Process each row
             int nrow = table.size() / NCOL;
-            LOG << "table id,nrow: " << block.BlockID << " " << nrow;
+            //LOG << "table id,nrow: " << block.BlockID << " " << nrow;
             for (int k = 0; k < nrow; k++)
             {
                 int itri = int(GET(table, k, 0));
