@@ -12,7 +12,8 @@ message(STATUS "Boost_INCLUDE_DIRS: " "${Boost_INCLUDE_DIRS}")
 message(STATUS "Boost_LIBRARIES: " "${Boost_LIBRARIES}")
 include_directories(${Boost_INCLUDE_DIRS})
 
-add_executable (middleman middleman.cpp)
+add_executable (middleman middleman.cpp diffusion.cpp heatloadcalc.cpp)
+include_directories(${PROJECT_SOURCE_DIR}/heatload)
 target_link_libraries (middleman adios2::adios2 MPI::MPI_C)
 target_link_libraries (middleman ${Boost_LIBRARIES})
-
+target_link_libraries (middleman heatloadlib)

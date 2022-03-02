@@ -1,6 +1,4 @@
 #include "output.hpp"
-#include "adios2.h"
-#include "sml.hpp"
 
 // Example: 
 // 2D array of shape (d0, d1): index at (i,j) is (d1*i + j)
@@ -12,9 +10,8 @@ adios2::IO output_io;
 adios2::Engine writer;
 
 extern Simulation sml;
-extern adios2::ADIOS *ad;
 
-void output(HeatLoad &ion, HeatLoad &elec) {
+void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec) {
     static bool first = true;
 
     if(first) {
@@ -27,7 +24,7 @@ void output(HeatLoad &ion, HeatLoad &elec) {
 
         output_io.DefineVariable<double>("io.side", {N_SIDE+1}, {0}, {N_SIDE+1});
 
-        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write);
+        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write, MPI_COMM_SELF);
 
         first = false;
     }

@@ -1,20 +1,26 @@
-find_package(ADIOS2 2.7.1 REQUIRED COMPONENTS CXX)
+set(CMAKE_CXX_STANDARD 14)
+
+find_package (MPI COMPONENTS CXX)
+find_package(ADIOS2 REQUIRED COMPONENTS CXX MPI)
 find_package(OpenMP)
 
 set(SOURCES
-    main.cpp
     load.cpp
     heatload_calc.cpp
     initialize.cpp
     separate.cpp
     particles.cpp
     output.cpp
+    heatload.cpp
 )
 
-add_executable (heatload ${SOURCES})
+add_library(heatloadlib ${SOURCES})
+add_executable (heatload main.cpp)
 if (OpenMP_FOUND)
-    target_compile_definitions(heatload PUBLIC USE_OMP)
-    target_link_libraries(heatload adios2::cxx11 OpenMP::OpenMP_CXX)
-else()
-    target_link_libraries(heatload adios2::cxx11)
+    target_compile_definitions(heatloadlib PUBLIC USE_OMP)
+    target_link_libraries(heatloadlib OpenMP::OpenMP_CXX)
+    target_link_libraries(heatload OpenMP::OpenMP_CXX)
 endif()
+
+target_link_libraries(heatloadlib adios2::adios2 MPI::MPI_C)
+target_link_libraries(heatload heatloadlib adios2::adios2 MPI::MPI_C)
