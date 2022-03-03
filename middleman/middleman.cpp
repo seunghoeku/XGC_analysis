@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
     init_log(rank);
 
-    adios2::ADIOS ad(comm);
+    adios2::ADIOS ad("adios2cfg.xml", comm);
 
     // Comm for heatload
     MPI_Group world_group;
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     MPI_Comm heatload_comm;
     MPI_Comm_create(MPI_COMM_WORLD, heatload_group, &heatload_comm);
 
-    Diffusion diffusion(&ad, MPI_COMM_WORLD);
+    Diffusion diffusion(&ad, comm);
     Heatload heatload(&ad, heatload_comm);
 
     int istep = 0;
@@ -116,7 +116,8 @@ int main(int argc, char *argv[])
         }
 
         istep++;
-        if (istep>10) break;
+        if (istep > 10)
+            break;
     }
 
     diffusion.finalize();

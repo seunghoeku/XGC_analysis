@@ -7,13 +7,13 @@ Simulation sml; // input parameters that controls simulation.
 t_ParticleDB iesc_db;
 t_ParticleDB eesc_db;
 
-void heatload_init(adios2::ADIOS *ad)
+void heatload_init(adios2::ADIOS *ad, MPI_Comm comm)
 {
     // init simulation parameters
     init(ad);
 
     // init adios
-    load_init(ad, "xgc.escaped_ptls.bp");
+    load_init(ad, "xgc.escaped_ptls.bp", comm);
 }
 
 void heatload_init2(adios2::ADIOS *ad)
