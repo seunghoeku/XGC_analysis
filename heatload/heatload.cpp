@@ -6,6 +6,9 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // cal
 Simulation sml; // input parameters that controls simulation.
 t_ParticleDB iesc_db;
 t_ParticleDB eesc_db;
+MPI_Comm heatload_comm;
+int heatload_comm_size;
+int heatload_comm_rank;
 
 void heatload_init(adios2::ADIOS *ad, MPI_Comm comm)
 {
@@ -14,6 +17,10 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm)
 
     // init adios
     load_init(ad, "xgc.escaped_ptls.bp", comm);
+
+    heatload_comm = comm;
+    MPI_Comm_rank(heatload_comm, &heatload_comm_rank);
+    MPI_Comm_size(heatload_comm, &heatload_comm_size);
 }
 
 void heatload_init2(adios2::ADIOS *ad)
@@ -49,40 +56,43 @@ int heatload_step(adios2::ADIOS *ad, int istep)
         return -1;
     }
 
-    std::cout << std::endl;
-    std::cout << ">>> Step: " << istep << std::endl;
-    std::cout << "Num. of escaped ions: " << iesc.size() << std::endl;
-    std::cout << "Num. of escaped elec: " << eesc.size() << std::endl;
-    std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
-    std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
-
-    // print first 10 esc particles
-    int count = 0;
-    std::map<long long, Particle>::iterator it;
-    for (it = iesc.begin(); it != iesc.end(); it++)
+    if (heatload_comm_rank == 0)
     {
-        printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z, it->second.phi,
-               it->second.flag);
-        count++;
-        if (count > 10)
-            break;
+        std::cout << std::endl;
+        std::cout << ">>> Step: " << istep << std::endl;
+        std::cout << "Num. of escaped ions: " << iesc.size() << std::endl;
+        std::cout << "Num. of escaped elec: " << eesc.size() << std::endl;
+        std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
+        std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
+
+        // print first 10 esc particles
+        int count = 0;
+        std::map<long long, Particle>::iterator it;
+        for (it = iesc.begin(); it != iesc.end(); it++)
+        {
+            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
+                   it->second.phi, it->second.flag);
+            count++;
+            if (count > 10)
+                break;
+        }
+
+        // separate divertor particles and escaped particles
+        iesc_db.push_back(iesc);
+        eesc_db.push_back(eesc);
+        Particle ptl = search(iesc_db, istep - 1, 15824414);
+        printf("Found or not? gid=%lld\n", ptl.gid);
+
+        // store escaped particles to DB
+
+        // Calculate heatload from divertor particles
+        HeatLoad ion(1);
+        HeatLoad elec(0);
+
+        heatload_calc(idiv, ion, iesc_db); // need to send DB
+        heatload_calc(ediv, elec, eesc_db);
+        output(ad, ion, elec);
     }
-
-    // separate divertor particles and escaped particles
-    iesc_db.push_back(iesc);
-    eesc_db.push_back(eesc);
-    Particle ptl = search(iesc_db, istep - 1, 15824414);
-    printf("Found or not? gid=%lld\n", ptl.gid);
-
-    // store escaped particles to DB
-
-    // Calculate heatload from divertor particles
-    HeatLoad ion(1);
-    HeatLoad elec(0);
-
-    heatload_calc(idiv, ion, iesc_db); // need to send DB
-    heatload_calc(ediv, elec, eesc_db);
-    output(ad, ion, elec);
 
     return 0;
 }

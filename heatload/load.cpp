@@ -139,7 +139,6 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             edw.insert(edw.end(), _edw.begin(), _edw.end());
             iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
             ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
-            printf("%d: igid,_igid: %d %d\n", reader_comm_rank, igid.size(), _igid.size());
         }
 
         assert(iphase.size() / igid.size() == NPHASE);
@@ -158,8 +157,6 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
-        printf("%d: len,displacement,ntotal= %d %d %d\n", reader_comm_rank, displacement_list[reader_comm_rank],
-               len_list[reader_comm_rank], ntotal);
 
         std::vector<long> igid_total(ntotal);
         std::vector<int> iflag_total(ntotal);
