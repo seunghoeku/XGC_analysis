@@ -67,7 +67,7 @@ int heatload_step(adios2::ADIOS *ad, int istep)
 
         // print first 10 esc particles
         int count = 0;
-        std::map<long long, Particle>::iterator it;
+        t_ParticlesList::iterator it;
         for (it = iesc.begin(); it != iesc.end(); it++)
         {
             printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
@@ -141,7 +141,8 @@ void heatload(adios2::ADIOS *ad)
 
         // print first 10 esc particles
         int count = 0;
-        std::map<long long, Particle>::iterator it;
+        t_ParticlesList::iterator it;
+
         for (it = iesc.begin(); it != iesc.end(); it++)
         {
             printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,

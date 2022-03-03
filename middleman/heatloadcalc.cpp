@@ -177,7 +177,7 @@ adios2::StepStatus Heatload::step()
         ntotal = 0;
         for (int i = 0; i < len_list.size(); i++)
         {
-            //LOG << boost::format("%d %d") % i % len_list[i];
+            // LOG << boost::format("%d %d") % i % len_list[i];
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
@@ -298,7 +298,7 @@ adios2::StepStatus Heatload::step()
 
             // print first 10 esc particles
             int count = 0;
-            std::map<long long, Particle>::iterator it;
+            t_ParticlesList::iterator it;
             for (it = iesc.begin(); it != iesc.end(); it++)
             {
                 printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
