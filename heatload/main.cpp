@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(comm, &comm_size);
 
     if (rank == 0)
-        printf("color,world_rank,world_size,rank,comm_size: %d %d %d %d\n", MY_COLOR, world_rank, world_size, rank,
+        printf("color,world_rank,world_size,rank,comm_size: %d %d %d %d %d\n", MY_COLOR, world_rank, world_size, rank,
                comm_size);
 
     // Parse command line arguments
