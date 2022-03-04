@@ -19,6 +19,9 @@
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
+// MPI color for MPMD mode: Diffusion(3), Heatload(5), Poincare (7), Middleman(9)
+#define MY_COLOR 9
+
 static void show_usage(std::string name)
 {
     std::cerr << "Usage: " << name << std::endl;
@@ -36,15 +39,21 @@ void init_log(int rank)
 
 int main(int argc, char *argv[])
 {
-    int rank, world_size;
-    MPI_Comm comm = MPI_COMM_WORLD;
+    int world_rank, world_size;
+    int rank, comm_size;
+    MPI_Comm comm;
 
     MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    // MPI comm split for MPMD mode: 
+    MPI_Comm_split(MPI_COMM_WORLD, MY_COLOR, world_rank, &comm);
     MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &world_size);
+    MPI_Comm_size(comm, &comm_size);
 
     if (rank == 0)
-        printf("rank,world_size: %d %d\n", rank, world_size);
+        printf("world_rank,world_size,rank,comm_size: %d %d %d %d\n", world_rank, world_size, rank, comm_size);
 
     if (argc < 1)
     {
@@ -55,26 +64,26 @@ int main(int argc, char *argv[])
 
     init_log(rank);
 
-    adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml");
+    adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
     // Comm for heatload
-    MPI_Group world_group;
-    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+    MPI_Group comm_group;
+    MPI_Comm_group(comm, &comm_group);
 
-    std::vector<int> ranks(world_size);
-    for (int i = 0; i < world_size; i++)
-        ranks[i] = (i + 1) % world_size;
+    std::vector<int> ranks(comm_size);
+    for (int i = 0; i < comm_size; i++)
+        ranks[i] = (i + 1) % comm_size;
 
     MPI_Group heatload_group;
-    MPI_Group_incl(world_group, world_size, ranks.data(), &heatload_group);
+    MPI_Group_incl(comm_group, comm_size, ranks.data(), &heatload_group);
 
     MPI_Comm heatload_comm;
-    MPI_Comm_create(MPI_COMM_WORLD, heatload_group, &heatload_comm);
+    MPI_Comm_create(comm, heatload_group, &heatload_comm);
 
     Diffusion diffusion(ad, comm);
     Heatload heatload(ad, heatload_comm);
 
-    int istep = 0;
+    int istep = 1;
     while (true)
     {
         adios2::StepStatus status;
@@ -116,12 +125,13 @@ int main(int argc, char *argv[])
         }
 
         istep++;
-        if (istep > 10)
+        if (istep > 2)
             break;
     }
 
     diffusion.finalize();
     // heatload.finalize();
+
     delete ad;
     MPI_Finalize();
     return 0;
