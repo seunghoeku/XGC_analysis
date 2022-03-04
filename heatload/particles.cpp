@@ -8,9 +8,10 @@ Particle search(t_ParticleDB &db, int timestep, long long gid)
     ptl.gid = -1;
 
     t_ParticlesList ptls = db[timestep];
+    auto it = ptls.find(gid);
 
-    if (ptls.find(gid) != ptls.end())
-        ptl = ptls[gid];
+    if (it != ptls.end())
+        ptl = it->second;
 
     return ptl;
 }
