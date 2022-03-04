@@ -120,10 +120,10 @@ int main(int argc, char *argv[])
             break;
     }
 
+    MPI_Barrier(comm);
     diffusion.finalize();
     // heatload.finalize();
 
-    MPI_Barrier(comm);
     MPI_Finalize();
     return 0;
 }

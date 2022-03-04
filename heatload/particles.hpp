@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define MMOD 10'000
+#define MMOD 1'000'000
 // particle data strcuture
 // float is used to save memory. Check any underflow happens??
 struct Particle
