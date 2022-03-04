@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
         }
 
         istep++;
-        if (istep > 1)
+        if (istep > 10)
             break;
     }
 
