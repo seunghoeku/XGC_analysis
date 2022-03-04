@@ -261,7 +261,8 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 if (fl.escaped)
                 {
                     // add to esc
-                    iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
+                    // iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
+                    add(iesc, iptl);
                 }
                 else
                 {
@@ -298,7 +299,8 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 if (fl.escaped)
                 {
                     // add to esc
-                    eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
+                    // eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
+                    add(eesc, eptl);
                 }
                 else
                 {

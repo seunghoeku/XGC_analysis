@@ -242,7 +242,8 @@ adios2::StepStatus Heatload::step()
                 if (fl.escaped)
                 {
                     // add to esc
-                    iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
+                    // iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
+                    add(iesc, iptl);
                 }
                 else
                 {
@@ -279,7 +280,8 @@ adios2::StepStatus Heatload::step()
                 if (fl.escaped)
                 {
                     // add to esc
-                    eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
+                    // eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
+                    add(eesc, eptl);
                 }
                 else
                 {
@@ -296,17 +298,17 @@ adios2::StepStatus Heatload::step()
             std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
             std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
 
-            // print first 10 esc particles
-            int count = 0;
-            t_ParticlesList::iterator it;
-            for (it = iesc.begin(); it != iesc.end(); it++)
-            {
-                printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
-                       it->second.phi, it->second.flag);
-                count++;
-                if (count > 10)
-                    break;
-            }
+            // // print first 10 esc particles
+            // int count = 0;
+            // t_ParticlesList::iterator it;
+            // for (it = iesc.begin(); it != iesc.end(); it++)
+            // {
+            //     printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
+            //            it->second.phi, it->second.flag);
+            //     count++;
+            //     if (count > 10)
+            //         break;
+            // }
 
             // separate divertor particles and escaped particles
             this->iesc_db.push_back(iesc);

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
+#define MMOD 10'000
 // particle data strcuture
 // float is used to save memory. Check any underflow happens??
 struct Particle
@@ -29,10 +30,13 @@ struct Particle
 
 typedef std::vector<struct Particle> Particles;
 // typedef std::map<long long, Particle> t_ParticlesList;
-typedef std::unordered_map<long long, Particle> t_ParticlesList;
+// typedef std::unordered_map<long long, Particle> t_ParticlesList;
+typedef std::unordered_map<long long, Particle> t_ParticlesListInner;
+typedef std::unordered_map<long long, t_ParticlesListInner> t_ParticlesList;
 typedef std::vector<t_ParticlesList> t_ParticleDB;
 
 Particle search(t_ParticleDB &db, int timestep, long long int gid);
+void add(t_ParticlesList& pmap, Particle ptl);
 
 //#include "particles.tpp"
 #endif

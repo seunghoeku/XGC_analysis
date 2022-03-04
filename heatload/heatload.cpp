@@ -65,23 +65,23 @@ int heatload_step(adios2::ADIOS *ad, int istep)
         std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
         std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
 
-        // print first 10 esc particles
-        int count = 0;
-        t_ParticlesList::iterator it;
-        for (it = iesc.begin(); it != iesc.end(); it++)
-        {
-            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
-                   it->second.phi, it->second.flag);
-            count++;
-            if (count > 10)
-                break;
-        }
+        // // print first 10 esc particles
+        // int count = 0;
+        // t_ParticlesList::iterator it;
+        // for (it = iesc.begin(); it != iesc.end(); it++)
+        // {
+        //     printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
+        //            it->second.phi, it->second.flag);
+        //     count++;
+        //     if (count > 10)
+        //         break;
+        // }
 
         // separate divertor particles and escaped particles
         iesc_db.push_back(iesc);
         eesc_db.push_back(eesc);
-        Particle ptl = search(iesc_db, istep - 1, 15824414);
-        printf("Found or not? gid=%lld\n", ptl.gid);
+        // Particle ptl = search(iesc_db, istep - 1, 15824414);
+        // printf("Found or not? gid=%lld\n", ptl.gid);
 
         // store escaped particles to DB
 
@@ -139,18 +139,18 @@ void heatload(adios2::ADIOS *ad)
         std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
         std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
 
-        // print first 10 esc particles
-        int count = 0;
-        t_ParticlesList::iterator it;
+        // // print first 10 esc particles
+        // int count = 0;
+        // t_ParticlesList::iterator it;
 
-        for (it = iesc.begin(); it != iesc.end(); it++)
-        {
-            printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
-                   it->second.phi, it->second.flag);
-            count++;
-            if (count > 10)
-                break;
-        }
+        // for (it = iesc.begin(); it != iesc.end(); it++)
+        // {
+        //     printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
+        //            it->second.phi, it->second.flag);
+        //     count++;
+        //     if (count > 10)
+        //         break;
+        // }
 
         // separate divertor particles and escaped particles
         iesc_db.push_back(iesc);
