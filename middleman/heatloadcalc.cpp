@@ -32,7 +32,7 @@ Heatload::Heatload(adios2::ADIOS *ad, MPI_Comm comm)
 void Heatload::finalize()
 {
     this->reader.Close();
-    heatload_finalize(this->ad);
+    heatload_finalize();
 }
 
 adios2::StepStatus Heatload::step()

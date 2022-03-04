@@ -97,7 +97,7 @@ int heatload_step(adios2::ADIOS *ad, int istep)
     return 0;
 }
 
-void heatload_finalize(adios2::ADIOS *ad)
+void heatload_finalize()
 {
     load_finalize();
     output_finalize();

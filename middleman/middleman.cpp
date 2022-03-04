@@ -47,13 +47,14 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    // MPI comm split for MPMD mode: 
+    // MPI comm split for MPMD mode:
     MPI_Comm_split(MPI_COMM_WORLD, MY_COLOR, world_rank, &comm);
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
 
     if (rank == 0)
-        printf("world_rank,world_size,rank,comm_size: %d %d %d %d\n", world_rank, world_size, rank, comm_size);
+        printf("color,world_rank,world_size,rank,comm_size: %d %d %d %d\n", MY_COLOR, world_rank, world_size, rank,
+               comm_size);
 
     if (argc < 1)
     {
