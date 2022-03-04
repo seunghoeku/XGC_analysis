@@ -100,7 +100,8 @@ int heatload_step(adios2::ADIOS *ad, int istep)
 void heatload_finalize()
 {
     load_finalize();
-    output_finalize();
+    if (heatload_comm_rank==0)
+        output_finalize();
 }
 
 void heatload(adios2::ADIOS *ad)
