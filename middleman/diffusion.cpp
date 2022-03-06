@@ -14,7 +14,7 @@ inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io)
 {
     int n_t;
     adios2::Engine reader;
-    io = ad->DeclareIO("'diagnosis.mesh");
+    io = ad->DeclareIO("diagnosis.mesh");
     reader = io.Open("xgc.mesh.bp", adios2::Mode::Read, MPI_COMM_SELF);
     auto var = io.InquireVariable<int>("n_t");
     reader.Get<int>(var, &n_t);
@@ -45,6 +45,7 @@ Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
     this->e_dE_squared_average.resize(this->ntriangle);
     this->e_marker_den.resize(this->ntriangle);
 
+    this->io = ad->DeclareIO("tracer_diag");
     this->reader = this->io.Open("xgc.tracer_diag.bp", adios2::Mode::Read, this->comm);
 }
 
