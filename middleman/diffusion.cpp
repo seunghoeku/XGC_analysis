@@ -52,6 +52,8 @@ Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
 void Diffusion::finalize()
 {
     this->reader.Close();
+    if (this->rank == 0)
+        this->writer.Close();
 }
 
 adios2::StepStatus Diffusion::step()
