@@ -34,11 +34,16 @@ Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
     this->ntriangle = read_mesh(ad, this->io);
     this->istep = 0;
 
-    this->i_marker_den.resize(this->ntriangle);
     this->i_dr_avg.resize(this->ntriangle);
-    this->i_En_dr_avg.resize(this->ntriangle);
-    this->i_dr_std.resize(this->ntriangle);
-    this->i_En_dr_std.resize(this->ntriangle);
+    this->i_dr_squared_average.resize(this->ntriangle);
+    this->i_dE_avg.resize(this->ntriangle);
+    this->i_dE_squared_average.resize(this->ntriangle);
+    this->i_marker_den.resize(this->ntriangle);
+    this->e_dr_avg.resize(this->ntriangle);
+    this->e_dr_squared_average.resize(this->ntriangle);
+    this->e_dE_avg.resize(this->ntriangle);
+    this->e_dE_squared_average.resize(this->ntriangle);
+    this->e_marker_den.resize(this->ntriangle);
 
     this->reader = this->io.Open("xgc.tracer_diag.bp", adios2::Mode::Read, this->comm);
 }
@@ -57,7 +62,7 @@ adios2::StepStatus Diffusion::step()
         auto block_list = reader.BlocksInfo(var_table, this->istep);
 
         auto slice = split_vector(block_list, this->comm_size, this->rank);
-        LOG << boost::format("offset,nblock= %d %d") % slice.first % slice.second;
+        LOG << boost::format("Diffusion offset,nblock= %d %d") % slice.first % slice.second;
 
         int offset = slice.first;
         int nblock = slice.second;
@@ -71,7 +76,10 @@ adios2::StepStatus Diffusion::step()
             this->reader.Get<double>(var_table, table);
             this->reader.PerformGets();
 
-            // Process each row
+            // Process each row:
+            // Each row of the "table" contains the following info:
+            // triangle, i_dr_average, i_dr_squared_average, i_dE_average, i_dE_squared_average, i_marker_den,
+            // e_dr_average, e_dr_squared_average, e_dE_average, e_dE_squared_average, e_marker_den
             int nrow = table.size() / NCOL;
             // LOG << "table id,nrow: " << block.BlockID << " " << nrow;
             for (int k = 0; k < nrow; k++)
@@ -89,15 +97,32 @@ adios2::StepStatus Diffusion::step()
                 double _e_dE_squared_average = GET(table, k, 9);
                 double _e_marker_den = GET(table, k, 10);
 
-                this->i_dr_avg[itri] += _i_dr_average;
-                this->i_marker_den[itri] += _i_marker_den;
-
                 // LOG << boost::format("%d: %d %g %g") % block.BlockID % itri % _i_dr_average % _i_marker_den;
+                this->i_dr_avg[itri] += _i_dr_average;
+                this->i_dr_squared_average[itri] += _i_dr_squared_average;
+                this->i_dE_avg[itri] += _i_dE_average;
+                this->i_dE_squared_average[itri] += _i_dE_squared_average;
+                this->e_marker_den[itri] += _e_marker_den;
+                this->e_dr_avg[itri] += _e_dr_average;
+                this->e_dr_squared_average[itri] += _e_dr_squared_average;
+                this->e_dE_avg[itri] += _e_dE_average;
+                this->e_dE_squared_average[itri] += _e_dE_squared_average;
+                this->e_marker_den[itri] += _e_marker_den;
             }
 
             // Merge all to rank 0
-            std::vector<double> vec_list[] = {this->i_marker_den, this->i_dr_avg, this->i_En_dr_avg, this->i_dr_std,
-                                              this->i_En_dr_std};
+            std::vector<double> vec_list[] = {
+                this->i_dr_avg,
+                this->i_dr_squared_average,
+                this->i_dE_avg,
+                this->i_dE_squared_average,
+                this->i_marker_den,
+                this->e_dr_avg,
+                this->e_dr_squared_average,
+                this->e_dE_avg,
+                this->e_dE_squared_average,
+                this->e_marker_den,
+            };
 
             for (auto &vec : vec_list)
             {
@@ -115,11 +140,50 @@ adios2::StepStatus Diffusion::step()
         // Save
         if (this->rank == 0)
         {
-            // save output
+            this->output();
         }
 
         this->reader.EndStep();
         this->istep++;
     }
     return status;
+}
+
+void Diffusion::output()
+{
+    static bool first = true;
+
+    if (first)
+    {
+        this->output_io = ad->DeclareIO("diffusion");
+        long unsigned int ntri = this->ntriangle;
+
+        this->output_io.DefineVariable<double>("i_dr_avg", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("i_dr_squared_average", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("i_dE_avg", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("i_dE_squared_average", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("i_marker_den", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("e_dr_avg", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("e_dr_squared_average", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("e_dE_avg", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("e_dE_squared_average", {ntri}, {0}, {ntri});
+        this->output_io.DefineVariable<double>("e_marker_den", {ntri}, {0}, {ntri});
+
+        this->writer = output_io.Open("xgc.diffusion.bp", adios2::Mode::Write, MPI_COMM_SELF);
+
+        first = false;
+    }
+
+    this->writer.BeginStep();
+    this->writer.Put<double>("i_dr_avg", this->i_dr_avg.data());
+    this->writer.Put<double>("i_dr_squared_average", this->i_dr_squared_average.data());
+    this->writer.Put<double>("i_dE_avg", this->i_dE_avg.data());
+    this->writer.Put<double>("i_dE_squared_average", this->i_dE_squared_average.data());
+    this->writer.Put<double>("i_marker_den", this->i_marker_den.data());
+    this->writer.Put<double>("e_dr_avg", this->e_dr_avg.data());
+    this->writer.Put<double>("e_dr_squared_average", this->e_dr_squared_average.data());
+    this->writer.Put<double>("e_dE_avg", this->e_dE_avg.data());
+    this->writer.Put<double>("e_dE_squared_average", this->e_dE_squared_average.data());
+    this->writer.Put<double>("e_marker_den", this->e_marker_den.data());
+    this->writer.EndStep();
 }
