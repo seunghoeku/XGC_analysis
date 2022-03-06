@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.tri import Triangulation
 import adios2
-
+import traceback
 
 # set the colormap and centre the colorbar
 class MidpointNormalize(colors.Normalize):
@@ -78,6 +78,7 @@ class Diffusion():
                         self.plot_regions(Deff, chieff)
                     except Exception as e:
                         print ("ERROR: plotting error", e)
+                        traceback.print_exc()
                 else:
                     sigma_rs, sigma_Ens = self.calc_sigma(self.dr_stds[tindex], self.En_dr_stds[tindex], 
                                                           self.dr_avgs[tindex] , self.En_dr_avgs[tindex],
@@ -218,7 +219,7 @@ class Diffusion():
         axs[1].tripcolor(self.triObj,chieff)
 
 if __name__ == "__main__":
-    
+
     diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp")
     diffusion.workflow()
             
