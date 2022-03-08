@@ -65,7 +65,7 @@ adios2::StepStatus Diffusion::step()
         auto block_list = reader.BlocksInfo(var_table, this->istep);
 
         auto slice = split_vector(block_list, this->comm_size, this->rank);
-        LOG << boost::format("Diffusion offset,nblock= %d %d") % slice.first % slice.second;
+        LOG << boost::format("Step %d: diffusion offset,nblock= %d %d") % this->istep % slice.first % slice.second;
 
         int offset = slice.first;
         int nblock = slice.second;
@@ -74,19 +74,20 @@ adios2::StepStatus Diffusion::step()
         for (int i = offset; i < offset + nblock; i++)
         {
             auto block = block_list[i];
+            std::vector<double> table;
+
             int ncount = 1;
             for (auto d : block.Count)
-                ncount *= d;
-            if (ncount == 0)
             {
-                // LOG << "No data. Skip block: " << block.BlockID;
-                continue;
+                ncount *= d;
             }
 
-            var_table.SetBlockSelection(block.BlockID);
-            std::vector<double> table;
-            this->reader.Get<double>(var_table, table);
-            this->reader.PerformGets();
+            if (ncount > 0)
+            {
+                var_table.SetBlockSelection(block.BlockID);
+                this->reader.Get<double>(var_table, table);
+                this->reader.PerformGets();
+            }
 
             // Process each row:
             // Each row of the "table" contains the following info:
@@ -121,31 +122,22 @@ adios2::StepStatus Diffusion::step()
                 this->e_dE_squared_average[itri] += _e_dE_squared_average;
                 this->e_marker_den[itri] += _e_marker_den;
             }
+        }
+        // Merge all to rank 0
+        std::vector<double> vec_list[] = {
+            this->i_dr_avg, this->i_dr_squared_average, this->i_dE_avg, this->i_dE_squared_average, this->i_marker_den,
+            this->e_dr_avg, this->e_dr_squared_average, this->e_dE_avg, this->e_dE_squared_average, this->e_marker_den,
+        };
 
-            // Merge all to rank 0
-            std::vector<double> vec_list[] = {
-                this->i_dr_avg,
-                this->i_dr_squared_average,
-                this->i_dE_avg,
-                this->i_dE_squared_average,
-                this->i_marker_den,
-                this->e_dr_avg,
-                this->e_dr_squared_average,
-                this->e_dE_avg,
-                this->e_dE_squared_average,
-                this->e_marker_den,
-            };
-
-            for (auto &vec : vec_list)
+        for (auto &vec : vec_list)
+        {
+            if (this->rank == 0)
             {
-                if (this->rank == 0)
-                {
-                    MPI_Reduce(MPI_IN_PLACE, vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
-                }
-                else
-                {
-                    MPI_Reduce(vec.data(), vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
-                }
+                MPI_Reduce(MPI_IN_PLACE, vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
+            }
+            else
+            {
+                MPI_Reduce(vec.data(), vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
             }
         }
 
