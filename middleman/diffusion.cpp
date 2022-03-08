@@ -74,6 +74,15 @@ adios2::StepStatus Diffusion::step()
         for (int i = offset; i < offset + nblock; i++)
         {
             auto block = block_list[i];
+            int ncount = 1;
+            for (auto d : block.Count)
+                ncount *= d;
+            if (ncount == 0)
+            {
+                // LOG << "No data. Skip block: " << block.BlockID;
+                continue;
+            }
+
             var_table.SetBlockSelection(block.BlockID);
             std::vector<double> table;
             this->reader.Get<double>(var_table, table);
