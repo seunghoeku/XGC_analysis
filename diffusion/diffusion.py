@@ -75,17 +75,25 @@ class Diffusion():
                     Deff = sigma_rs/(2*self.dt*tindex)
                     chieff = sigma_Ens/(2*self.dt*tindex)
                     try:
+                        plt.figure()
                         self.plot_regions(Deff, chieff)
+                        fname = "fig-diffusion1.%d.jpg"%tindex
+                        plt.savefig()
+                        print ("Saved:", fname)
                     except Exception as e:
                         print ("ERROR: plotting error", e)
                         traceback.print_exc()
                 else:
-                    sigma_rs, sigma_Ens = self.calc_sigma(self.dr_stds[tindex], self.En_dr_stds[tindex], 
-                                                          self.dr_avgs[tindex] , self.En_dr_avgs[tindex],
-                                                          self.marker_dens[tindex])
+                    sigma_rs, sigma_Ens = self.calc_sigma(self.dr_stds[tindex-1], self.En_dr_stds[tindex-1], 
+                                                          self.dr_avgs[tindex-1] , self.En_dr_avgs[tindex-1],
+                                                          self.marker_dens[tindex-1])
                     Deff = sigma_rs/(2*self.dt*tindex)
                     chieff = sigma_Ens/(2*self.dt*tindex)
+                    plt.figure()
                     self.plot_tri2d(Deff, chieff)
+                    fname = "fig-diffusion2.%d.jpg"%tindex
+                    plt.savefig(fname)
+                    print ("Saved:", fname)
             else:
                 break
 
@@ -111,15 +119,15 @@ class Diffusion():
         En_dr_avg = np.zeros(ntri, dtype=np.double)
         marker_den = np.zeros(ntri, dtype=np.double)
 
-        var = self.IO.InquireVariable('i_dr_squared_average')
+        var = self.IO.InquireVariable('e_dr_squared_average')
         self.reader.Get(var, dr_std)
-        var = self.IO.InquireVariable('i_dr_avg')
+        var = self.IO.InquireVariable('e_dr_avg')
         self.reader.Get(var, dr_avg)
-        var = self.IO.InquireVariable('i_dE_squared_average')
+        var = self.IO.InquireVariable('e_dE_squared_average')
         self.reader.Get(var, En_dr_std)
-        var = self.IO.InquireVariable('i_dE_avg')
+        var = self.IO.InquireVariable('e_dE_avg')
         self.reader.Get(var, En_dr_avg)
-        var = self.IO.InquireVariable('i_marker_den')
+        var = self.IO.InquireVariable('e_marker_den')
         self.reader.Get(var, marker_den)
         self.reader.PerformGets()
         return dr_std[inds],En_dr_std[inds],dr_avg[inds],En_dr_avg[inds],marker_den[inds]
@@ -148,7 +156,7 @@ class Diffusion():
 
 
     def create_regions(self, theta0=-60, theta1 = 30, dtheta = 10, 
-                             psin0=1.0, psin1 = 1.01, dpsin = 0.01):
+                             psin0=1.0, psin1 = 1.3, dpsin = 0.01):
         """Create list of arrays of indices defining regions to aggregate over"""
         Nthetas = int((theta1-theta0)/dtheta)
         thetas= theta0 + np.arange(Nthetas, dtype=np.double)*dtheta
@@ -161,11 +169,11 @@ class Diffusion():
         regtheta = []
         for t in range(Nthetas-1):
             for p in range(Npsins-1):
-                inds = np.where((psins[p]>=self.psin) & (psins[p+1]<self.psin)
-                                (thetas[p]>=self.theta) & (thetas[t+1]<self.theta))[0]
+                inds = np.where((psins[p+1]>=self.psin) & (psins[p]<self.psin) & 
+                                (thetas[t+1]>=self.theta) & (thetas[t]<self.theta))[0]
                 regions.append(inds)
                 regpsin.append((psins[p+1]+psins[p])/2.)
-                regtheta.append((theta[p+1]+theta[p])/2.)
+                regtheta.append((thetas[t+1]+thetas[t])/2.)
         
         return regions, regpsin, regtheta
 
@@ -181,7 +189,7 @@ class Diffusion():
         return sigma_rs, sigma_Ens
 
     
-    def calc_sigma(dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den):
+    def calc_sigma(self, dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den):
         """Calculate the true std. dev. of markers"""
         #calculate sigma_r and sigma_En
         sigma_r = dr_std/marker_den - (dr_avg/marker_den)**2.
@@ -213,13 +221,13 @@ class Diffusion():
         plt.title(title)
 
 
-    def plot_tri2d(Deff, chieff):
+    def plot_tri2d(self, Deff, chieff):
         fig, axs = plt.subplots(2,1)
         axs[0].tripcolor(self.triObj,Deff)
         axs[1].tripcolor(self.triObj,chieff)
 
 if __name__ == "__main__":
 
-    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp")
+    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp", aggregate=False)
     diffusion.workflow()
             
