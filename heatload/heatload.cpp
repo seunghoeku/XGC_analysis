@@ -1,6 +1,7 @@
 #include "heatload.hpp"
+#include <boost/filesystem.hpp>
 
-void init(adios2::ADIOS *ad);                                             // initialization
+void init(adios2::ADIOS *ad, std::string xgcdir);                         // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
 Simulation sml; // input parameters that controls simulation.
@@ -10,23 +11,24 @@ MPI_Comm heatload_comm;
 int heatload_comm_size;
 int heatload_comm_rank;
 
-void heatload_init(adios2::ADIOS *ad, MPI_Comm comm)
+void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
 {
     // init simulation parameters
-    init(ad);
+    init(ad, xgcdir);
 
     // init adios
-    load_init(ad, "xgc.escaped_ptls.bp", comm);
+    boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.escaped_ptls.bp");
+    load_init(ad, fname.string(), comm);
 
     heatload_comm = comm;
     MPI_Comm_rank(heatload_comm, &heatload_comm_rank);
     MPI_Comm_size(heatload_comm, &heatload_comm_size);
 }
 
-void heatload_init2(adios2::ADIOS *ad)
+void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
 {
     // init simulation parameters
-    init(ad);
+    init(ad, xgcdir);
 
     // init adios
     // load_init(ad, "xgc.escaped_ptls.bp");
@@ -100,7 +102,7 @@ int heatload_step(adios2::ADIOS *ad, int istep)
 void heatload_finalize()
 {
     load_finalize();
-    if (heatload_comm_rank==0)
+    if (heatload_comm_rank == 0)
         output_finalize();
 }
 

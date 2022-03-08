@@ -1,6 +1,7 @@
 #include "diffusion.hpp"
 #include "util.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
@@ -10,12 +11,15 @@
 #define NCOL 11
 #define GET(X, i, j) X[i * NCOL + j]
 
-inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io)
+inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io, std::string xgcdir)
 {
     int n_t;
     adios2::Engine reader;
     io = ad->DeclareIO("diagnosis.mesh");
-    reader = io.Open("xgc.mesh.bp", adios2::Mode::Read, MPI_COMM_SELF);
+
+    boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.mesh.bp");
+    LOG << "Loading: " << fname;
+    reader = io.Open(fname.string(), adios2::Mode::Read, MPI_COMM_SELF);
     auto var = io.InquireVariable<int>("n_t");
     reader.Get<int>(var, &n_t);
     reader.Close();
@@ -31,15 +35,16 @@ inline double vec_sum(std::vector<double> &vec)
     return sum;
 }
 
-Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
+Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
     this->ad = ad;
+    this->xgcdir = xgcdir;
 
     this->comm = comm;
     MPI_Comm_rank(comm, &this->rank);
     MPI_Comm_size(comm, &this->comm_size);
 
-    this->ntriangle = read_mesh(ad, this->io);
+    this->ntriangle = read_mesh(ad, this->io, this->xgcdir);
     this->istep = 0;
 
     this->i_dr_avg.resize(this->ntriangle);
@@ -54,7 +59,10 @@ Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
     this->e_marker_den.resize(this->ntriangle);
 
     this->io = ad->DeclareIO("tracer_diag");
-    this->reader = this->io.Open("xgc.tracer_diag.bp", adios2::Mode::Read, this->comm);
+    boost::filesystem::path fname =
+        boost::filesystem::path(this->xgcdir) / boost::filesystem::path("xgc.tracer_diag.bp");
+    LOG << "Loading: " << fname;
+    this->reader = this->io.Open(fname.string(), adios2::Mode::Read, this->comm);
 }
 
 void Diffusion::finalize()

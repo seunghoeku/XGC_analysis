@@ -2,6 +2,7 @@
 #include "adios2.h"
 #include "util.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
@@ -13,9 +14,10 @@
 
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
-Heatload::Heatload(adios2::ADIOS *ad, MPI_Comm comm)
+Heatload::Heatload(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
     this->ad = ad;
+    this->xgcdir = xgcdir;
 
     this->comm = comm;
     MPI_Comm_rank(comm, &this->rank);
@@ -23,10 +25,13 @@ Heatload::Heatload(adios2::ADIOS *ad, MPI_Comm comm)
 
     this->istep = 0;
 
-    heatload_init2(ad);
+    heatload_init2(ad, xgcdir);
 
     this->io = ad->DeclareIO("escaped_ptls"); // same IO name as in XGC
-    this->reader = this->io.Open("xgc.escaped_ptls.bp", adios2::Mode::Read, comm);
+    boost::filesystem::path fname =
+        boost::filesystem::path(this->xgcdir) / boost::filesystem::path("xgc.escaped_ptls.bp");
+    LOG << "Loading: " << fname;
+    this->reader = this->io.Open(fname.string(), adios2::Mode::Read, comm);
 }
 
 void Heatload::finalize()

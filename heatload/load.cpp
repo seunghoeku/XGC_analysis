@@ -6,6 +6,10 @@
 #include "load.hpp"
 #include "sml.hpp"
 
+#include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup.hpp>
+#define LOG BOOST_LOG_TRIVIAL(debug)
+
 #define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
@@ -28,6 +32,7 @@ template <typename T> inline std::pair<int, int> split_vector(std::vector<T> &ve
 void load_init(adios2::ADIOS *ad, const std::string &filename, MPI_Comm comm)
 {
     reader_io = ad->DeclareIO("escaped_ptls"); // same IO name as in XGC
+    LOG << "Loading: " << filename;
     reader = reader_io.Open(filename, adios2::Mode::Read, comm);
     reader_comm = comm;
     MPI_Comm_rank(reader_comm, &reader_comm_rank);

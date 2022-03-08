@@ -7,7 +7,7 @@
 class Diffusion
 {
   public:
-    Diffusion(adios2::ADIOS *ad, MPI_Comm comm);
+    Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm);
 
     void finalize();
     void output();
@@ -29,6 +29,7 @@ class Diffusion
     int comm_size;
     int rank;
 
+    std::string xgcdir;
     int ntriangle;
     int istep;
 

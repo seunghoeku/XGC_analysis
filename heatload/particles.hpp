@@ -36,7 +36,7 @@ typedef std::unordered_map<long long, t_ParticlesListInner> t_ParticlesList;
 typedef std::vector<t_ParticlesList> t_ParticleDB;
 
 Particle search(t_ParticleDB &db, int timestep, long long int gid);
-void add(t_ParticlesList& pmap, Particle ptl);
+void add(t_ParticlesList &pmap, Particle ptl);
 
 //#include "particles.tpp"
 #endif

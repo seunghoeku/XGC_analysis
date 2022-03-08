@@ -13,6 +13,7 @@
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
+#include <boost/program_options.hpp>
 
 #include "diffusion.hpp"
 
@@ -20,6 +21,8 @@
 
 // MPI color for MPMD mode: Diffusion(3), Heatload(5), Poincare (7), Middleman(9)
 #define MY_COLOR 3
+
+namespace po = boost::program_options;
 
 static void show_usage(std::string name)
 {
@@ -51,22 +54,32 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
 
+    init_log(rank);
+
+    std::string xgcdir = ".";
+
+    po::options_description desc("Allowed options");
+    desc.add_options()("help,h", "produce help message")("xgcdir,w", po::value(&xgcdir), "XGC directory");
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
     if (rank == 0)
+    {
+        if (vm.count("help"))
+        {
+            std::cout << desc << "\n";
+            return 1;
+        }
         printf("color,world_rank,world_size,rank,comm_size: %d %d %d %d %d\n", MY_COLOR, world_rank, world_size, rank,
                comm_size);
-
-    if (argc < 1)
-    {
-        if (rank == 0)
-            show_usage(argv[0]);
-        return 1;
+        LOG << "XGC directory: " << xgcdir;
     }
-
-    init_log(rank);
 
     adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
-    Diffusion diffusion(ad, comm);
+    Diffusion diffusion(ad, xgcdir, comm);
 
     int istep = 1;
     while (true)
