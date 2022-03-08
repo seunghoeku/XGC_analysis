@@ -94,18 +94,6 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
         // Read table block by block
         for (int i = offset; i < offset + nblock; i++)
         {
-            auto block = block_list_igid[i];
-            var_igid.SetBlockSelection(block.BlockID);
-            var_egid.SetBlockSelection(block.BlockID);
-            var_iflag.SetBlockSelection(block.BlockID);
-            var_eflag.SetBlockSelection(block.BlockID);
-            var_istep.SetBlockSelection(block.BlockID);
-            var_estep.SetBlockSelection(block.BlockID);
-            var_idw.SetBlockSelection(block.BlockID);
-            var_edw.SetBlockSelection(block.BlockID);
-            var_iphase.SetBlockSelection(block.BlockID);
-            var_ephase.SetBlockSelection(block.BlockID);
-
             std::vector<long> _igid;
             std::vector<long> _egid;
             std::vector<int> _iflag;
@@ -117,28 +105,49 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             std::vector<float> _iphase;
             std::vector<float> _ephase;
 
-            reader.Get<long>(var_igid, _igid);
-            reader.Get<long>(var_egid, _egid);
-            reader.Get<int>(var_iflag, _iflag);
-            reader.Get<int>(var_eflag, _eflag);
-            reader.Get<int>(var_istep, _istep);
-            reader.Get<int>(var_estep, _estep);
-            reader.Get<float>(var_idw, _idw);
-            reader.Get<float>(var_edw, _edw);
-            reader.Get<float>(var_iphase, _iphase);
-            reader.Get<float>(var_ephase, _ephase);
-            reader.PerformGets();
+            auto block = block_list_igid[i];
+            int ncount = 1;
+            for (auto &d : block.Count)
+            {
+                ncount *= d;
+            }
 
-            igid.insert(igid.end(), _igid.begin(), _igid.end());
-            egid.insert(egid.end(), _egid.begin(), _egid.end());
-            iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
-            eflag.insert(eflag.end(), _eflag.begin(), _eflag.end());
-            istep.insert(istep.end(), _istep.begin(), _istep.end());
-            estep.insert(estep.end(), _estep.begin(), _estep.end());
-            idw.insert(idw.end(), _idw.begin(), _idw.end());
-            edw.insert(edw.end(), _edw.begin(), _edw.end());
-            iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
-            ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
+            if (ncount > 0)
+            {
+                var_igid.SetBlockSelection(block.BlockID);
+                var_egid.SetBlockSelection(block.BlockID);
+                var_iflag.SetBlockSelection(block.BlockID);
+                var_eflag.SetBlockSelection(block.BlockID);
+                var_istep.SetBlockSelection(block.BlockID);
+                var_estep.SetBlockSelection(block.BlockID);
+                var_idw.SetBlockSelection(block.BlockID);
+                var_edw.SetBlockSelection(block.BlockID);
+                var_iphase.SetBlockSelection(block.BlockID);
+                var_ephase.SetBlockSelection(block.BlockID);
+
+                reader.Get<long>(var_igid, _igid);
+                reader.Get<long>(var_egid, _egid);
+                reader.Get<int>(var_iflag, _iflag);
+                reader.Get<int>(var_eflag, _eflag);
+                reader.Get<int>(var_istep, _istep);
+                reader.Get<int>(var_estep, _estep);
+                reader.Get<float>(var_idw, _idw);
+                reader.Get<float>(var_edw, _edw);
+                reader.Get<float>(var_iphase, _iphase);
+                reader.Get<float>(var_ephase, _ephase);
+                reader.PerformGets();
+
+                igid.insert(igid.end(), _igid.begin(), _igid.end());
+                egid.insert(egid.end(), _egid.begin(), _egid.end());
+                iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
+                eflag.insert(eflag.end(), _eflag.begin(), _eflag.end());
+                istep.insert(istep.end(), _istep.begin(), _istep.end());
+                estep.insert(estep.end(), _estep.begin(), _estep.end());
+                idw.insert(idw.end(), _idw.begin(), _idw.end());
+                edw.insert(edw.end(), _edw.begin(), _edw.end());
+                iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
+                ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
+            }
         }
 
         assert(iphase.size() / igid.size() == NPHASE);
