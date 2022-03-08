@@ -23,6 +23,14 @@ inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io)
     return n_t;
 }
 
+inline double vec_sum(std::vector<double> &vec)
+{
+    double sum = 0;
+    for (auto &x : vec)
+        sum += x;
+    return sum;
+}
+
 Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
 {
     this->ad = ad;
@@ -56,6 +64,18 @@ void Diffusion::finalize()
         this->writer.Close();
 }
 
+void Diffusion::vec_reduce(std::vector<double> &vec)
+{
+    if (this->rank == 0)
+    {
+        MPI_Reduce(MPI_IN_PLACE, vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
+    }
+    else
+    {
+        MPI_Reduce(vec.data(), vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
+    }
+}
+
 adios2::StepStatus Diffusion::step()
 {
     adios2::StepStatus status = this->reader.BeginStep();
@@ -77,7 +97,7 @@ adios2::StepStatus Diffusion::step()
             std::vector<double> table;
 
             int ncount = 1;
-            for (auto d : block.Count)
+            for (auto &d : block.Count)
             {
                 ncount *= d;
             }
@@ -123,23 +143,18 @@ adios2::StepStatus Diffusion::step()
                 this->e_marker_den[itri] += _e_marker_den;
             }
         }
-        // Merge all to rank 0
-        std::vector<double> vec_list[] = {
-            this->i_dr_avg, this->i_dr_squared_average, this->i_dE_avg, this->i_dE_squared_average, this->i_marker_den,
-            this->e_dr_avg, this->e_dr_squared_average, this->e_dE_avg, this->e_dE_squared_average, this->e_marker_den,
-        };
 
-        for (auto &vec : vec_list)
-        {
-            if (this->rank == 0)
-            {
-                MPI_Reduce(MPI_IN_PLACE, vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
-            }
-            else
-            {
-                MPI_Reduce(vec.data(), vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
-            }
-        }
+        // Merge all to rank 0
+        vec_reduce(this->i_dr_avg);
+        vec_reduce(this->i_dr_squared_average);
+        vec_reduce(this->i_dE_avg);
+        vec_reduce(this->i_dE_squared_average);
+        vec_reduce(this->i_marker_den);
+        vec_reduce(this->e_dr_avg);
+        vec_reduce(this->e_dr_squared_average);
+        vec_reduce(this->e_dE_avg);
+        vec_reduce(this->e_dE_squared_average);
+        vec_reduce(this->e_marker_den);
 
         // Save
         if (this->rank == 0)

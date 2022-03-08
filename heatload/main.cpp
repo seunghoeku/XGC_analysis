@@ -78,9 +78,6 @@ int main(int argc, char *argv[])
         else if (ret == -1)
             // no more data
             break;
-
-        if (istep > 2)
-            break;
     }
     heatload_finalize();
 

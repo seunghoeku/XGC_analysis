@@ -14,6 +14,9 @@ class Diffusion
 
     adios2::StepStatus step();
 
+    // helper
+    void vec_reduce(std::vector<double> &vec);
+
   public:
     adios2::ADIOS *ad;
     adios2::IO io;
