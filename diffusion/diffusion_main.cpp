@@ -57,9 +57,11 @@ int main(int argc, char *argv[])
     init_log(rank);
 
     std::string xgcdir = ".";
+    int maxstep = 0;
 
     po::options_description desc("Allowed options");
-    desc.add_options()("help,h", "produce help message")("xgcdir,w", po::value(&xgcdir), "XGC directory");
+    desc.add_options()("help,h", "produce help message")("xgcdir,w", po::value(&xgcdir), "XGC directory")(
+        "maxstep,s", po::value<int>(&maxstep)->default_value(0), "max steps");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -105,6 +107,8 @@ int main(int argc, char *argv[])
         }
 
         istep++;
+        if ((maxstep > 0) && (istep > maxstep))
+            break;
     }
 
     diffusion.finalize();
