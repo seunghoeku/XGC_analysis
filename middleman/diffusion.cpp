@@ -89,6 +89,7 @@ adios2::StepStatus Diffusion::step()
 
         int offset = slice.first;
         int nblock = slice.second;
+        int total_nrow = 0;
 
         // Read table block by block
         for (int i = offset; i < offset + nblock; i++)
@@ -114,6 +115,7 @@ adios2::StepStatus Diffusion::step()
             // triangle, i_dr_average, i_dr_squared_average, i_dE_average, i_dE_squared_average, i_marker_den,
             // e_dr_average, e_dr_squared_average, e_dE_average, e_dE_squared_average, e_marker_den
             int nrow = table.size() / NCOL;
+            total_nrow += nrow;
             // LOG << "table id,nrow: " << block.BlockID << " " << nrow;
             for (int k = 0; k < nrow; k++)
             {
@@ -143,6 +145,9 @@ adios2::StepStatus Diffusion::step()
                 this->e_marker_den[itri] += _e_marker_den;
             }
         }
+
+        LOG << boost::format("Step %d: MPI reducing table vs mesh: %d %d") % this->istep % (total_nrow * NCOL) %
+                   (this->ntriangle * 10);
 
         // Merge all to rank 0
         vec_reduce(this->i_dr_avg);
