@@ -23,6 +23,12 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
     heatload_comm = comm;
     MPI_Comm_rank(heatload_comm, &heatload_comm_rank);
     MPI_Comm_size(heatload_comm, &heatload_comm_size);
+
+    if (heatload_comm_rank == 0)
+    {
+        ptldb_load(iesc_db, "heatload_iesc_db.bp");
+        ptldb_load(eesc_db, "heatload_eesc_db.bp");
+    }
 }
 
 void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
@@ -103,7 +109,11 @@ void heatload_finalize()
 {
     load_finalize();
     if (heatload_comm_rank == 0)
+    {
         output_finalize();
+        ptldb_save(iesc_db, "heatload_iesc_db.bp");
+        ptldb_save(eesc_db, "heatload_eesc_db.bp");
+    }
 }
 
 void heatload(adios2::ADIOS *ad)

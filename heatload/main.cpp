@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 
         if (ret == 0)
             // everything is ok
-            istep++;
+            ;
         else if (ret > 0)
             // wait again
             continue;
