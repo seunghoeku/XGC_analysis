@@ -20,7 +20,7 @@ void init(adios2::ADIOS *ad, std::string xgcdir)
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.units.bp");
     LOG << "Loading: " << fname;
     reader = reader_io.Open(fname.string(), adios2::Mode::Read, MPI_COMM_SELF);
-	reader.BeginStep();
+    reader.BeginStep();
 
     double sml_e_charge, sml_prot_mass;
     double ptl_mass_au, ptl_charge_eu, ptl_e_mass_au, ptl_e_charge_eu;
@@ -48,7 +48,7 @@ void init(adios2::ADIOS *ad, std::string xgcdir)
     reader.Get<double>("diag_heat_zmax2", sml.zmax[1]);
     reader.Get<double>("diag_heat_pmin2", sml.pmin[1]);
     reader.Get<double>("diag_heat_pmax2", sml.pmax[1]);
-	reader.EndStep();
+    reader.EndStep();
     reader.Close();
 
     sml.npsi = N_PSI;
