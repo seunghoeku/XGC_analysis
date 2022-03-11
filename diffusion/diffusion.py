@@ -29,7 +29,7 @@ class MidpointNormalize(colors.Normalize):
 
 
 class Diffusion():
-    def __init__(self, path='./', aggregate=True, engine="SST", channel_name="diffusion"):
+    def __init__(self, path='./', aggregate=True, engine="SST", channel_name="diffusion", isp=0):
 
         self.aggregate = aggregate
 
@@ -45,6 +45,8 @@ class Diffusion():
             self.regions, self.regpsin, self.regtheta = self.create_regions()
 
         self.setup_adios(engine, channel_name)
+
+        self.isp = isp
 
     def workflow(self):
         """Continually read in XGC data from adios stream, calc reduced stats, plot"""
@@ -77,7 +79,7 @@ class Diffusion():
                     try:
                         plt.figure()
                         self.plot_regions(Deff, chieff)
-                        fname = "fig-diffusion1.%d.jpg"%tindex
+                        fname = "fig-diffusion1-%d.%d.jpg"%(self.isp, tindex)
                         plt.savefig()
                         print ("Saved:", fname)
                     except Exception as e:
@@ -91,7 +93,7 @@ class Diffusion():
                     chieff = sigma_Ens/(2*self.dt*tindex)
                     plt.figure()
                     self.plot_tri2d(Deff, chieff)
-                    fname = "fig-diffusion2.%d.jpg"%tindex
+                    fname = "fig-diffusion2-%d.%d.jpg"%(self.isp, tindex)
                     plt.savefig(fname)
                     print ("Saved:", fname)
             else:
@@ -119,17 +121,31 @@ class Diffusion():
         En_dr_avg = np.zeros(ntri, dtype=np.double)
         marker_den = np.zeros(ntri, dtype=np.double)
 
-        var = self.IO.InquireVariable('e_dr_squared_average')
-        self.reader.Get(var, dr_std)
-        var = self.IO.InquireVariable('e_dr_avg')
-        self.reader.Get(var, dr_avg)
-        var = self.IO.InquireVariable('e_dE_squared_average')
-        self.reader.Get(var, En_dr_std)
-        var = self.IO.InquireVariable('e_dE_avg')
-        self.reader.Get(var, En_dr_avg)
-        var = self.IO.InquireVariable('e_marker_den')
-        self.reader.Get(var, marker_den)
-        self.reader.PerformGets()
+        if self.isp == 0:
+            var = self.IO.InquireVariable('e_dr_squared_average')
+            self.reader.Get(var, dr_std)
+            var = self.IO.InquireVariable('e_dr_avg')
+            self.reader.Get(var, dr_avg)
+            var = self.IO.InquireVariable('e_dE_squared_average')
+            self.reader.Get(var, En_dr_std)
+            var = self.IO.InquireVariable('e_dE_avg')
+            self.reader.Get(var, En_dr_avg)
+            var = self.IO.InquireVariable('e_marker_den')
+            self.reader.Get(var, marker_den)
+            self.reader.PerformGets()
+        else:
+            var = self.IO.InquireVariable('i_dr_squared_average')
+            self.reader.Get(var, dr_std)
+            var = self.IO.InquireVariable('i_dr_avg')
+            self.reader.Get(var, dr_avg)
+            var = self.IO.InquireVariable('i_dE_squared_average')
+            self.reader.Get(var, En_dr_std)
+            var = self.IO.InquireVariable('i_dE_avg')
+            self.reader.Get(var, En_dr_avg)
+            var = self.IO.InquireVariable('i_marker_den')
+            self.reader.Get(var, marker_den)
+            self.reader.PerformGets()
+
         return dr_std[inds],En_dr_std[inds],dr_avg[inds],En_dr_avg[inds],marker_den[inds]
 
 
@@ -228,6 +244,8 @@ class Diffusion():
 
 if __name__ == "__main__":
 
-    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp", aggregate=False)
+    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp", aggregate=False, isp=0)
     diffusion.workflow()
             
+    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp", aggregate=False, isp=1)
+    diffusion.workflow()
