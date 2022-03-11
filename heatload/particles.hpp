@@ -2,7 +2,9 @@
 #define PARTICLES_HPP
 
 #include <assert.h>
+#include <iostream>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -37,6 +39,9 @@ typedef std::vector<t_ParticlesList> t_ParticleDB;
 
 Particle search(t_ParticleDB &db, int timestep, long long int gid);
 void add(t_ParticlesList &pmap, Particle ptl);
+void ptldb_save(t_ParticleDB &db, std::string filename);
+void ptldb_load(t_ParticleDB &db, std::string filename);
+void ptldb_print(t_ParticleDB &db);
 
 //#include "particles.tpp"
 #endif
