@@ -35,6 +35,31 @@ inline double vec_sum(std::vector<double> &vec)
     return sum;
 }
 
+void Diffusion::reset()
+{
+    this->i_dr_avg.resize(this->ntriangle);
+    this->i_dr_squared_average.resize(this->ntriangle);
+    this->i_dE_avg.resize(this->ntriangle);
+    this->i_dE_squared_average.resize(this->ntriangle);
+    this->i_marker_den.resize(this->ntriangle);
+    this->e_dr_avg.resize(this->ntriangle);
+    this->e_dr_squared_average.resize(this->ntriangle);
+    this->e_dE_avg.resize(this->ntriangle);
+    this->e_dE_squared_average.resize(this->ntriangle);
+    this->e_marker_den.resize(this->ntriangle);
+
+    std::fill(this->i_dr_avg.begin(), this->i_dr_avg.end(), 0.0);
+    std::fill(this->i_dr_squared_average.begin(), this->i_dr_squared_average.end(), 0.0);
+    std::fill(this->i_dE_avg.begin(), this->i_dE_avg.end(), 0.0);
+    std::fill(this->i_dE_squared_average.begin(), this->i_dE_squared_average.end(), 0.0);
+    std::fill(this->i_marker_den.begin(), this->i_marker_den.end(), 0.0);
+    std::fill(this->e_dr_avg.begin(), this->e_dr_avg.end(), 0.0);
+    std::fill(this->e_dr_squared_average.begin(), this->e_dr_squared_average.end(), 0.0);
+    std::fill(this->e_dE_avg.begin(), this->e_dE_avg.end(), 0.0);
+    std::fill(this->e_dE_squared_average.begin(), this->e_dE_squared_average.end(), 0.0);
+    std::fill(this->e_marker_den.begin(), this->e_marker_den.end(), 0.0);
+}
+
 Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
     this->ad = ad;
@@ -47,16 +72,7 @@ Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
     this->ntriangle = read_mesh(ad, this->io, this->xgcdir);
     this->istep = 0;
 
-    this->i_dr_avg.resize(this->ntriangle);
-    this->i_dr_squared_average.resize(this->ntriangle);
-    this->i_dE_avg.resize(this->ntriangle);
-    this->i_dE_squared_average.resize(this->ntriangle);
-    this->i_marker_den.resize(this->ntriangle);
-    this->e_dr_avg.resize(this->ntriangle);
-    this->e_dr_squared_average.resize(this->ntriangle);
-    this->e_dE_avg.resize(this->ntriangle);
-    this->e_dE_squared_average.resize(this->ntriangle);
-    this->e_marker_den.resize(this->ntriangle);
+    this->reset();
 
     this->io = ad->DeclareIO("tracer_diag");
     boost::filesystem::path fname =
@@ -89,6 +105,8 @@ adios2::StepStatus Diffusion::step()
     adios2::StepStatus status = this->reader.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
+        this->reset();
+
         auto var_table = this->io.InquireVariable<double>("table");
         auto block_list = reader.BlocksInfo(var_table, this->istep);
 
@@ -145,7 +163,8 @@ adios2::StepStatus Diffusion::step()
                 this->i_dr_squared_average[itri] += _i_dr_squared_average;
                 this->i_dE_avg[itri] += _i_dE_average;
                 this->i_dE_squared_average[itri] += _i_dE_squared_average;
-                this->e_marker_den[itri] += _e_marker_den;
+                this->i_marker_den[itri] += _i_marker_den;
+
                 this->e_dr_avg[itri] += _e_dr_average;
                 this->e_dr_squared_average[itri] += _e_dr_squared_average;
                 this->e_dE_avg[itri] += _e_dE_average;

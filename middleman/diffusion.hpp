@@ -16,6 +16,7 @@ class Diffusion
 
     // helper
     void vec_reduce(std::vector<double> &vec);
+    void reset();
 
   public:
     adios2::ADIOS *ad;
