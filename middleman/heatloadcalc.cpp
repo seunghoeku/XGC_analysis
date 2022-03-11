@@ -2,6 +2,7 @@
 #include "adios2.h"
 #include "util.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
@@ -13,9 +14,10 @@
 
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
-Heatload::Heatload(adios2::ADIOS *ad, MPI_Comm comm)
+Heatload::Heatload(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
     this->ad = ad;
+    this->xgcdir = xgcdir;
 
     this->comm = comm;
     MPI_Comm_rank(comm, &this->rank);
@@ -23,10 +25,13 @@ Heatload::Heatload(adios2::ADIOS *ad, MPI_Comm comm)
 
     this->istep = 0;
 
-    heatload_init2(ad);
+    heatload_init2(ad, xgcdir);
 
     this->io = ad->DeclareIO("escaped_ptls"); // same IO name as in XGC
-    this->reader = this->io.Open("xgc.escaped_ptls.bp", adios2::Mode::Read, comm);
+    boost::filesystem::path fname =
+        boost::filesystem::path(this->xgcdir) / boost::filesystem::path("xgc.escaped_ptls.bp");
+    LOG << "Loading: " << fname;
+    this->reader = this->io.Open(fname.string(), adios2::Mode::Read, comm);
 }
 
 void Heatload::finalize()
@@ -79,18 +84,6 @@ adios2::StepStatus Heatload::step()
         // Read table block by block
         for (int i = offset; i < offset + nblock; i++)
         {
-            auto block = block_list_igid[i];
-            var_igid.SetBlockSelection(block.BlockID);
-            var_egid.SetBlockSelection(block.BlockID);
-            var_iflag.SetBlockSelection(block.BlockID);
-            var_eflag.SetBlockSelection(block.BlockID);
-            var_istep.SetBlockSelection(block.BlockID);
-            var_estep.SetBlockSelection(block.BlockID);
-            var_idw.SetBlockSelection(block.BlockID);
-            var_edw.SetBlockSelection(block.BlockID);
-            var_iphase.SetBlockSelection(block.BlockID);
-            var_ephase.SetBlockSelection(block.BlockID);
-
             std::vector<long> _igid;
             std::vector<long> _egid;
             std::vector<int> _iflag;
@@ -102,28 +95,49 @@ adios2::StepStatus Heatload::step()
             std::vector<float> _iphase;
             std::vector<float> _ephase;
 
-            this->reader.Get<long>(var_igid, _igid);
-            this->reader.Get<long>(var_egid, _egid);
-            this->reader.Get<int>(var_iflag, _iflag);
-            this->reader.Get<int>(var_eflag, _eflag);
-            this->reader.Get<int>(var_istep, _istep);
-            this->reader.Get<int>(var_estep, _estep);
-            this->reader.Get<float>(var_idw, _idw);
-            this->reader.Get<float>(var_edw, _edw);
-            this->reader.Get<float>(var_iphase, _iphase);
-            this->reader.Get<float>(var_ephase, _ephase);
-            this->reader.PerformGets();
+            auto block = block_list_igid[i];
+            int ncount = 1;
+            for (auto &d : block.Count)
+            {
+                ncount *= d;
+            }
 
-            igid.insert(igid.end(), _igid.begin(), _igid.end());
-            egid.insert(egid.end(), _egid.begin(), _egid.end());
-            iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
-            eflag.insert(eflag.end(), _eflag.begin(), _eflag.end());
-            istep.insert(istep.end(), _istep.begin(), _istep.end());
-            estep.insert(estep.end(), _estep.begin(), _estep.end());
-            idw.insert(idw.end(), _idw.begin(), _idw.end());
-            edw.insert(edw.end(), _edw.begin(), _edw.end());
-            iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
-            ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
+            if (ncount > 0)
+            {
+                var_igid.SetBlockSelection(block.BlockID);
+                var_egid.SetBlockSelection(block.BlockID);
+                var_iflag.SetBlockSelection(block.BlockID);
+                var_eflag.SetBlockSelection(block.BlockID);
+                var_istep.SetBlockSelection(block.BlockID);
+                var_estep.SetBlockSelection(block.BlockID);
+                var_idw.SetBlockSelection(block.BlockID);
+                var_edw.SetBlockSelection(block.BlockID);
+                var_iphase.SetBlockSelection(block.BlockID);
+                var_ephase.SetBlockSelection(block.BlockID);
+
+                this->reader.Get<long>(var_igid, _igid);
+                this->reader.Get<long>(var_egid, _egid);
+                this->reader.Get<int>(var_iflag, _iflag);
+                this->reader.Get<int>(var_eflag, _eflag);
+                this->reader.Get<int>(var_istep, _istep);
+                this->reader.Get<int>(var_estep, _estep);
+                this->reader.Get<float>(var_idw, _idw);
+                this->reader.Get<float>(var_edw, _edw);
+                this->reader.Get<float>(var_iphase, _iphase);
+                this->reader.Get<float>(var_ephase, _ephase);
+                this->reader.PerformGets();
+
+                igid.insert(igid.end(), _igid.begin(), _igid.end());
+                egid.insert(egid.end(), _egid.begin(), _egid.end());
+                iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
+                eflag.insert(eflag.end(), _eflag.begin(), _eflag.end());
+                istep.insert(istep.end(), _istep.begin(), _istep.end());
+                estep.insert(estep.end(), _estep.begin(), _estep.end());
+                idw.insert(idw.end(), _idw.begin(), _idw.end());
+                edw.insert(edw.end(), _edw.begin(), _edw.end());
+                iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
+                ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
+            }
         }
 
         // Merge to rank 0

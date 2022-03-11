@@ -7,12 +7,16 @@
 class Diffusion
 {
   public:
-    Diffusion(adios2::ADIOS *ad, MPI_Comm comm);
+    Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm);
 
     void finalize();
     void output();
 
     adios2::StepStatus step();
+
+    // helper
+    void vec_reduce(std::vector<double> &vec);
+    void reset();
 
   public:
     adios2::ADIOS *ad;
@@ -26,6 +30,7 @@ class Diffusion
     int comm_size;
     int rank;
 
+    std::string xgcdir;
     int ntriangle;
     int istep;
 

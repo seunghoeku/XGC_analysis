@@ -1,6 +1,7 @@
 #include "diffusion.hpp"
 #include "util.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
@@ -10,12 +11,15 @@
 #define NCOL 11
 #define GET(X, i, j) X[i * NCOL + j]
 
-inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io)
+inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io, std::string xgcdir)
 {
     int n_t;
     adios2::Engine reader;
     io = ad->DeclareIO("diagnosis.mesh");
-    reader = io.Open("xgc.mesh.bp", adios2::Mode::Read, MPI_COMM_SELF);
+
+    boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.mesh.bp");
+    LOG << "Loading: " << fname;
+    reader = io.Open(fname.string(), adios2::Mode::Read, MPI_COMM_SELF);
     auto var = io.InquireVariable<int>("n_t");
     reader.Get<int>(var, &n_t);
     reader.Close();
@@ -23,17 +27,16 @@ inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io)
     return n_t;
 }
 
-Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
+inline double vec_sum(std::vector<double> &vec)
 {
-    this->ad = ad;
+    double sum = 0;
+    for (auto &x : vec)
+        sum += x;
+    return sum;
+}
 
-    this->comm = comm;
-    MPI_Comm_rank(comm, &this->rank);
-    MPI_Comm_size(comm, &this->comm_size);
-
-    this->ntriangle = read_mesh(ad, this->io);
-    this->istep = 0;
-
+void Diffusion::reset()
+{
     this->i_dr_avg.resize(this->ntriangle);
     this->i_dr_squared_average.resize(this->ntriangle);
     this->i_dE_avg.resize(this->ntriangle);
@@ -45,8 +48,37 @@ Diffusion::Diffusion(adios2::ADIOS *ad, MPI_Comm comm)
     this->e_dE_squared_average.resize(this->ntriangle);
     this->e_marker_den.resize(this->ntriangle);
 
+    std::fill(this->i_dr_avg.begin(), this->i_dr_avg.end(), 0.0);
+    std::fill(this->i_dr_squared_average.begin(), this->i_dr_squared_average.end(), 0.0);
+    std::fill(this->i_dE_avg.begin(), this->i_dE_avg.end(), 0.0);
+    std::fill(this->i_dE_squared_average.begin(), this->i_dE_squared_average.end(), 0.0);
+    std::fill(this->i_marker_den.begin(), this->i_marker_den.end(), 0.0);
+    std::fill(this->e_dr_avg.begin(), this->e_dr_avg.end(), 0.0);
+    std::fill(this->e_dr_squared_average.begin(), this->e_dr_squared_average.end(), 0.0);
+    std::fill(this->e_dE_avg.begin(), this->e_dE_avg.end(), 0.0);
+    std::fill(this->e_dE_squared_average.begin(), this->e_dE_squared_average.end(), 0.0);
+    std::fill(this->e_marker_den.begin(), this->e_marker_den.end(), 0.0);
+}
+
+Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
+{
+    this->ad = ad;
+    this->xgcdir = xgcdir;
+
+    this->comm = comm;
+    MPI_Comm_rank(comm, &this->rank);
+    MPI_Comm_size(comm, &this->comm_size);
+
+    this->ntriangle = read_mesh(ad, this->io, this->xgcdir);
+    this->istep = 0;
+
+    this->reset();
+
     this->io = ad->DeclareIO("tracer_diag");
-    this->reader = this->io.Open("xgc.tracer_diag.bp", adios2::Mode::Read, this->comm);
+    boost::filesystem::path fname =
+        boost::filesystem::path(this->xgcdir) / boost::filesystem::path("xgc.tracer_diag.bp");
+    LOG << "Loading: " << fname;
+    this->reader = this->io.Open(fname.string(), adios2::Mode::Read, this->comm);
 }
 
 void Diffusion::finalize()
@@ -56,34 +88,60 @@ void Diffusion::finalize()
         this->writer.Close();
 }
 
+void Diffusion::vec_reduce(std::vector<double> &vec)
+{
+    if (this->rank == 0)
+    {
+        MPI_Reduce(MPI_IN_PLACE, vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
+    }
+    else
+    {
+        MPI_Reduce(vec.data(), vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
+    }
+}
+
 adios2::StepStatus Diffusion::step()
 {
     adios2::StepStatus status = this->reader.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
+        this->reset();
+
         auto var_table = this->io.InquireVariable<double>("table");
         auto block_list = reader.BlocksInfo(var_table, this->istep);
 
         auto slice = split_vector(block_list, this->comm_size, this->rank);
-        LOG << boost::format("Diffusion offset,nblock= %d %d") % slice.first % slice.second;
+        LOG << boost::format("Step %d: diffusion offset,nblock= %d %d") % this->istep % slice.first % slice.second;
 
         int offset = slice.first;
         int nblock = slice.second;
+        int total_nrow = 0;
 
         // Read table block by block
         for (int i = offset; i < offset + nblock; i++)
         {
             auto block = block_list[i];
-            var_table.SetBlockSelection(block.BlockID);
             std::vector<double> table;
-            this->reader.Get<double>(var_table, table);
-            this->reader.PerformGets();
+
+            int ncount = 1;
+            for (auto &d : block.Count)
+            {
+                ncount *= d;
+            }
+
+            if (ncount > 0)
+            {
+                var_table.SetBlockSelection(block.BlockID);
+                this->reader.Get<double>(var_table, table);
+                this->reader.PerformGets();
+            }
 
             // Process each row:
             // Each row of the "table" contains the following info:
             // triangle, i_dr_average, i_dr_squared_average, i_dE_average, i_dE_squared_average, i_marker_den,
             // e_dr_average, e_dr_squared_average, e_dE_average, e_dE_squared_average, e_marker_den
             int nrow = table.size() / NCOL;
+            total_nrow += nrow;
             // LOG << "table id,nrow: " << block.BlockID << " " << nrow;
             for (int k = 0; k < nrow; k++)
             {
@@ -105,40 +163,30 @@ adios2::StepStatus Diffusion::step()
                 this->i_dr_squared_average[itri] += _i_dr_squared_average;
                 this->i_dE_avg[itri] += _i_dE_average;
                 this->i_dE_squared_average[itri] += _i_dE_squared_average;
-                this->e_marker_den[itri] += _e_marker_den;
+                this->i_marker_den[itri] += _i_marker_den;
+
                 this->e_dr_avg[itri] += _e_dr_average;
                 this->e_dr_squared_average[itri] += _e_dr_squared_average;
                 this->e_dE_avg[itri] += _e_dE_average;
                 this->e_dE_squared_average[itri] += _e_dE_squared_average;
                 this->e_marker_den[itri] += _e_marker_den;
             }
-
-            // Merge all to rank 0
-            std::vector<double> vec_list[] = {
-                this->i_dr_avg,
-                this->i_dr_squared_average,
-                this->i_dE_avg,
-                this->i_dE_squared_average,
-                this->i_marker_den,
-                this->e_dr_avg,
-                this->e_dr_squared_average,
-                this->e_dE_avg,
-                this->e_dE_squared_average,
-                this->e_marker_den,
-            };
-
-            for (auto &vec : vec_list)
-            {
-                if (this->rank == 0)
-                {
-                    MPI_Reduce(MPI_IN_PLACE, vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
-                }
-                else
-                {
-                    MPI_Reduce(vec.data(), vec.data(), vec.size(), MPI_DOUBLE, MPI_SUM, 0, this->comm);
-                }
-            }
         }
+
+        LOG << boost::format("Step %d: MPI reducing table vs mesh: %d %d") % this->istep % (total_nrow * NCOL) %
+                   (this->ntriangle * 10);
+
+        // Merge all to rank 0
+        vec_reduce(this->i_dr_avg);
+        vec_reduce(this->i_dr_squared_average);
+        vec_reduce(this->i_dE_avg);
+        vec_reduce(this->i_dE_squared_average);
+        vec_reduce(this->i_marker_den);
+        vec_reduce(this->e_dr_avg);
+        vec_reduce(this->e_dr_squared_average);
+        vec_reduce(this->e_dE_avg);
+        vec_reduce(this->e_dE_squared_average);
+        vec_reduce(this->e_marker_den);
 
         // Save
         if (this->rank == 0)

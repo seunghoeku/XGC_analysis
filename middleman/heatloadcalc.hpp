@@ -17,7 +17,7 @@
 class Heatload
 {
   public:
-    Heatload(adios2::ADIOS *ad, MPI_Comm comm);
+    Heatload(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm);
 
     void finalize();
 
@@ -32,6 +32,7 @@ class Heatload
     int comm_size;
     int rank;
 
+    std::string xgcdir;
     int istep;
     Simulation sml; // input parameters that controls simulation.
     t_ParticleDB iesc_db;
