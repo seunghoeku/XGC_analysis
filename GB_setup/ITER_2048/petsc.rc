@@ -1,0 +1,360 @@
+#
+# two field 00 mode solver, linear and nonlinear.
+#
+#-fsa_snes_type ksponly               # comment out for non-linear FSA solver (or to make sure solving)
+####-fsa_dm_mat_type nest
+-fsa_snes_max_it 1                   # make >> 1 for nonlinear solve
+-fsa_snes_lag_preconditioner -1       # make > 0 to update PC
+-fsa_snes_lag_jacobian -1             # make > 0 for nonlinear Jacobian
+-fsa_snes_rtol 2.e-6
+-fsa_snes_atol 1.e-8 # solvers scales so this detects zero
+#-fsa_snes_view
+-fsa_snes_monitor
+#-fsa_snes_converged_reason
+#-fsa_snes_ls basic
+#-fsa_ksp_type gmres
+-fsa_ksp_type richardson
+-fsa_pc_type fieldsplit
+-fsa_ksp_rtol 1.e-1
+-fsa_ksp_max_it 1
+-fsa_ksp_monitor
+#-fsa_ksp_converged_reason
+#-fsa_ksp_view
+-fsa_ksp_norm_type unpreconditioned  # this saves a PC apply!
+-fsa_pc_fieldsplit_type schur
+-fsa_pc_fieldsplit_schur_precondition user
+-fsa_pc_fieldsplit_schur_fact_type full
+-fsa_fieldsplit_phi_ksp_type cg
+-fsa_fieldsplit_phi_ksp_rtol 1.e-6
+#-fsa_fieldsplit_phi_ksp_norm_type unpreconditioned
+-fsa_fieldsplit_phi_pc_type gamg
+-fsa_fieldsplit_phi_pc_gamg_agg_nsmooths 1
+-fsa_fieldsplit_phi_pc_gamg_threshold -0.02
+-fsa_fieldsplit_phi_pc_gamg_verbose 0
+-fsa_fieldsplit_phi_gamg_est_ksp_type cg
+-fsa_fieldsplit_phi_mg_levels_ksp_type richardson 
+-fsa_fieldsplit_phi_mg_levels_pc_type sor
+-fsa_fieldsplit_phi_mg_levels_ksp_max_it 2
+#-fsa_fieldsplit_phi_ksp_monitor
+#-fsa_fieldsplit_phi_ksp_converged_reason
+-fsa_fieldsplit_phi_pc_gamg_repartition true
+-fsa_fieldsplit_phi_pc_gamg_mat_partitioning_type parmetis
+-fsa_fieldsplit_phi_pc_gamg_process_eq_limit 200
+-fsa_fieldsplit_phi_pc_mg_log
+#-fsa_fieldsplit_lambda_ksp_type gmres
+-fsa_fieldsplit_lambda_ksp_type preonly
+#-fsa_fieldsplit_lambda_ksp_rtol 1.e-6
+-fsa_fieldsplit_lambda_pc_type lu
+#-fsa_fieldsplit_lambda_pc_factor_mat_solver_package superlu_dist
+-fsa_fieldsplit_lambda_pc_type bjacobi
+-fsa_fieldsplit_lambda_sub_pc_type lu
+#-fsa_fieldsplit_lambda_ksp_converged_reason
+#-fsa_fieldsplit_lambda_ksp_monitor
+#-fsa_fieldsplit_lambda_ksp_view
+-fsa_fieldsplit_lambda_upper_ksp_type cg
+-fsa_fieldsplit_lambda_upper_ksp_rtol 1.e-6
+-fsa_fieldsplit_lambda_upper_pc_type gamg
+-fsa_fieldsplit_lambda_upper_pc_gamg_agg_nsmooths 1
+-fsa_fieldsplit_lambda_upper_pc_gamg_threshold -0.02
+-fsa_fieldsplit_lambda_upper_pc_gamg_verbose 0
+-fsa_fieldsplit_lambda_upper_gamg_est_ksp_type cg
+-fsa_fieldsplit_lambda_upper_mg_levels_ksp_type richardson 
+-fsa_fieldsplit_lambda_upper_mg_levels_pc_type sor
+-fsa_fieldsplit_lambda_upper_mg_levels_ksp_max_it 2
+#-fsa_fieldsplit_lambda_upper_ksp_converged_reason
+#-fsa_fieldsplit_lambda_upper_ksp_monitor
+-fsa_fieldsplit_lambda_upper_pc_gamg_repartition true
+-fsa_fieldsplit_lambda_upper_pc_gamg_mat_partitioning_type parmetis
+-fsa_fieldsplit_lambda_upper_pc_gamg_process_eq_limit 200
+-fsa_fieldsplit_lambda_inner_ksp_type cg
+-fsa_fieldsplit_lambda_inner_ksp_rtol 1.e-6 # this setup cost s/ sherman-Morrison & solve
+-fsa_fieldsplit_lambda_inner_pc_type gamg
+-fsa_fieldsplit_lambda_inner_pc_gamg_agg_nsmooths 1
+-fsa_fieldsplit_lambda_inner_pc_gamg_threshold -0.02
+-fsa_fieldsplit_lambda_inner_pc_gamg_verbose 0
+-fsa_fieldsplit_lambda_inner_gamg_est_ksp_type cg
+-fsa_fieldsplit_lambda_inner_mg_levels_ksp_type richardson 
+-fsa_fieldsplit_lambda_inner_mg_levels_pc_type sor
+-fsa_fieldsplit_lambda_inner_mg_levels_ksp_max_it 2
+#-fsa_fieldsplit_lambda_inner_ksp_monitor
+#-fsa_fieldsplit_lambda_inner_ksp_converged_reason
+-fsa_fieldsplit_lambda_inner_pc_gamg_repartition true
+-fsa_fieldsplit_lambda_inner_pc_gamg_mat_partitioning_type parmetis
+-fsa_fieldsplit_lambda_inner_pc_gamg_process_eq_limit 200
+-fsa_fieldsplit_lambda_inner_pc_mg_log
+-fsa_binva_mg_levels_ksp_chebyshev_esteig 0,0.05,0,1.05
+-fsa_binva_mg_levels_esteig_ksp_type cg
+-fsa_binva_mg_levels_ksp_chebyshev_esteig_random true
+-fsa_binva_ksp_rtol 1.e-6 # this setup cost s/ sherman-Morrison & solve
+-fsa_binva_pc_type gamg
+-fsa_binva_pc_gamg_agg_nsmooths 1
+-fsa_binva_pc_gamg_threshold -0.02
+-fsa_binva_pc_gamg_verbose 0
+-fsa_binva_gamg_est_ksp_type cg
+#-fsa_binva_mg_levels_ksp_type richardson 
+#-fsa_binva_mg_levels_pc_type sor
+-fsa_binva_mg_levels_ksp_type chebyshev 
+-fsa_binva_mg_levels_pc_type jacobi # slower but smoother
+-fsa_binva_mg_levels_ksp_max_it 2
+#-fsa_binva_ksp_monitor
+#-fsa_binva_ksp_converged_reason
+-fsa_binva_pc_gamg_repartition true
+-fsa_binva_pc_gamg_mat_partitioning_type parmetis
+-fsa_binva_pc_gamg_process_eq_limit 200
+-fsa_binva_pc_mg_log
+#
+# turbulence solver & 00 mode solver for FSA (solver_type!=0)
+#
+-s2_ksp_type cg
+-s2_ksp_rtol 1.e-6
+-s2_pc_type gamg
+-s2_pc_hypre_type boomeramg
+-s2_pc_gamg_agg_nsmooths 1 
+-s2_pc_gamg_threshold -0.02
+-s2_mg_levels_esteig_ksp_type cg
+-s2_mg_levels_esteig_ksp_max_it 10
+-s2_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-s2_mg_levels_ksp_type richardson
+-s2_mg_levels_pc_type sor
+-s2_mg_levels_ksp_max_it 2
+-s2_pc_gamg_repartition true
+-s2_pc_gamg_mat_partitioning_type parmetis
+-s2_pc_gamg_process_eq_limit 200
+#-s2_ksp_converged_reason
+#-s2_ksp_monitor
+#-s2_ksp_view
+#-s2_ksp_norm_type unpreconditioned
+#-s2_pc_gamg_reuse_interpolation true
+#
+# 00 mode solver for 1 field linear
+#
+-ksp_type cg
+-ksp_rtol 1.e-6
+-pc_type gamg
+-pc_hypre_type boomeramg
+-pc_gamg_agg_nsmooths 1 
+-pc_gamg_threshold -0.02
+-mg_levels_esteig_ksp_type cg
+-mg_levels_esteig_ksp_max_it 10
+-mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-mg_levels_ksp_type richardson
+-mg_levels_pc_type sor
+-mg_levels_ksp_max_it 2
+#-ksp_converged_reason 
+#-ksp_view
+-pc_gamg_repartition true
+-petscpartitioner_type parmetis
+-pc_gamg_mat_partitioning_type parmetis
+-pc_gamg_process_eq_limit 200
+-pc_mg_log
+#-ksp_monitor
+#
+#
+# Sover for divergence cleaning (ptb_3db_divclean_)
+#
+-ptb_3db_divclean_log_view
+-ptb_3db_divclean_ksp_type cg
+-ptb_3db_divclean_ksp_rtol 1.e-10
+-ptb_3db_divclean_pc_type gamg
+-ptb_3db_divclean_pc_hypre_type boomeramg
+-ptb_3db_divclean_pc_gamg_agg_nsmooths 1 
+-ptb_3db_divclean_pc_gamg_threshold -0.02
+-ptb_3db_divclean_mg_levels_esteig_ksp_type cg
+-ptb_3db_divclean_mg_levels_esteig_ksp_max_it 10
+-ptb_3db_divclean_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-ptb_3db_divclean_mg_levels_ksp_type richardson
+-ptb_3db_divclean_mg_levels_pc_type sor
+-ptb_3db_divclean_mg_levels_ksp_max_it 2
+#-ptb_3db_divclean_ksp_converged_reason 
+#-ptb_3db_divclean_ksp_view
+-ptb_3db_divclean_pc_gamg_repartition true
+-ptb_3db_divclean_petscpartitioner_type parmetis
+-ptb_3db_divclean_pc_gamg_process_eq_limit 200
+-ptb_3db_divclean_pc_mg_log
+-ptb_3db_divclean_ksp_monitor
+#
+# Solver for perturbed Ampere's law (ptb_3db_dA_)
+#
+-ptb_3db_divclean_log_view
+-ptb_3db_dA_ksp_type cg
+-ptb_3db_dA_ksp_rtol 1.e-6
+-ptb_3db_dA_pc_type gamg
+-ptb_3db_dA_pc_hypre_type boomeramg
+-ptb_3db_dA_pc_gamg_agg_nsmooths 1
+-ptb_3db_dA_pc_gamg_threshold -0.02
+-ptb_3db_dA_mg_levels_esteig_ksp_type cg
+-ptb_3db_dA_mg_levels_esteig_ksp_max_it 10
+-ptb_3db_dA_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-ptb_3db_dA_mg_levels_ksp_type richardson
+-ptb_3db_dA_mg_levels_pc_type sor
+-ptb_3db_dA_mg_levels_ksp_max_it 2
+#-ptb_3db_dA_ksp_converged_reason
+#-ptb_3db_dA_ksp_view
+-ptb_3db_dA_pc_gamg_repartition true
+-ptb_3db_dA_petscpartitioner_type parmetis
+-ptb_3db_dA_pc_gamg_process_eq_limit 200
+-ptb_3db_dA_pc_mg_log
+#-ptb_3db_dA_ksp_monitor
+#
+# mass solver Diffusion  explicit
+#
+-mass_ksp_type cg
+-mass_pc_type sor
+#-mass_ksp_converged_reason
+#
+# TS options
+#
+-adv_ts_log_view
+-adv_ts_type cn
+#-adv_ts_type rk
+-adv_ts_exact_final_time stepover
+-adv_ts_monitor
+#-adv_ts_view
+-adv_ts_max_step 1
+-adv_snes_max_it 1               # make >> 1 for nonlinear solve
+#-adv_snes_rtol=1.e-8
+-adv_snes_lag_preconditioner -1      # make > 0 to update PC
+-adv_snes_lag_jacobian 1000000       # make > 0 for nonlinear Jacobian
+-adv_snes_monitor
+#-adv_snes_converged_reason
+-adv_ksp_type fgmres
+-adv_ksp_max_it 200
+-adv_ksp_rtol 1.e-8
+-adv_ksp_norm_type unpreconditioned
+#-adv_ksp_monitor_true_residual
+-adv_ksp_monitor
+#-adv_ksp_converged_reason
+-adv_pc_type fieldsplit
+#-adv_ksp_compute_singularvalues
+-adv_pc_fieldsplit_type multiplicative
+#
+# multiplicative vars - 3 field needs AMG for density & temperature
+#
+-adv_fieldsplit_density_log_view
+-adv_fieldsplit_density_ksp_type cg
+-adv_fieldsplit_density_pc_type gamg
+-adv_fieldsplit_density_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_density_pc_gamg_threshold -0.02
+-adv_fieldsplit_density_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_density_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_density_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_density_mg_levels_ksp_type richardson
+-adv_fieldsplit_density_mg_levels_pc_type sor
+-adv_fieldsplit_density_mg_levels_ksp_max_it 20
+-adv_fieldsplit_density_ksp_monitor
+#-adv_fieldsplit_density_ksp_converged_reason
+-adv_fieldsplit_density_pc_mg_log
+#
+-adv_fieldsplit_momentum_log_view
+-adv_fieldsplit_momentum_ksp_type cg
+-adv_fieldsplit_momentum_pc_type gamg
+-adv_fieldsplit_momentum_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_momentum_pc_gamg_threshold -0.02
+-adv_fieldsplit_momentum_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_momentum_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_momentum_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_momentum_mg_levels_ksp_type richardson
+-adv_fieldsplit_momentum_mg_levels_pc_type sor
+-adv_fieldsplit_momentum_mg_levels_ksp_max_it 20
+-adv_fieldsplit_momentum_ksp_monitor
+#-adv_fieldsplit_momentum_ksp_converged_reason
+-adv_fieldsplit_momentum_pc_mg_log
+#
+-adv_fieldsplit_temperature_para_log_view
+-adv_fieldsplit_temperature_para_ksp_type cg
+-adv_fieldsplit_temperature_para_pc_type gamg
+-adv_fieldsplit_temperature_para_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_temperature_para_pc_gamg_threshold -0.02
+-adv_fieldsplit_temperature_para_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_temperature_para_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_temperature_para_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_temperature_para_mg_levels_ksp_type richardson
+-adv_fieldsplit_temperature_para_mg_levels_pc_type sor
+-adv_fieldsplit_temperature_para_mg_levels_ksp_max_it 20
+-adv_fieldsplit_temperature_para_ksp_monitor
+#-adv_fieldsplit_temperature_para_ksp_converged_reason
+-adv_fieldsplit_temperature_para_pc_mg_log
+#
+-adv_fieldsplit_temperature_perp_log_view
+-adv_fieldsplit_temperature_perp_ksp_type cg
+-adv_fieldsplit_temperature_perp_pc_type gamg
+-adv_fieldsplit_temperature_perp_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_temperature_perp_pc_gamg_threshold -0.02
+-adv_fieldsplit_temperature_perp_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_temperature_perp_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_temperature_perp_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_temperature_perp_mg_levels_ksp_type richardson
+-adv_fieldsplit_temperature_perp_mg_levels_pc_type sor
+-adv_fieldsplit_temperature_perp_mg_levels_ksp_max_it 20
+-adv_fieldsplit_temperature_perp_ksp_monitor
+#-adv_fieldsplit_temperature_perp_ksp_converged_reason
+-adv_fieldsplit_temperature_perp_pc_mg_log
+#
+-adv_fieldsplit_momentum2_log_view
+-adv_fieldsplit_momentum2_ksp_type cg
+-adv_fieldsplit_momentum2_pc_type gamg
+-adv_fieldsplit_momentum2_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_momentum2_pc_gamg_threshold -0.02
+-adv_fieldsplit_momentum2_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_momentum2_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_momentum2_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_momentum2_mg_levels_ksp_type richardson
+-adv_fieldsplit_momentum2_mg_levels_pc_type sor
+-adv_fieldsplit_momentum2_mg_levels_ksp_max_it 20
+-adv_fieldsplit_momentum2_ksp_monitor
+#-adv_fieldsplit_momentum2_ksp_converged_reason
+-adv_fieldsplit_momentum2_pc_mg_log
+#
+-adv_fieldsplit_temperature2_para_log_view
+-adv_fieldsplit_temperature2_para_ksp_type cg
+-adv_fieldsplit_temperature2_para_pc_type gamg
+-adv_fieldsplit_temperature2_para_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_temperature2_para_pc_gamg_threshold -0.02
+-adv_fieldsplit_temperature2_para_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_temperature2_para_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_temperature2_para_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_temperature2_para_mg_levels_ksp_type richardson
+-adv_fieldsplit_temperature2_para_mg_levels_pc_type sor
+-adv_fieldsplit_temperature2_para_mg_levels_ksp_max_it 20
+-adv_fieldsplit_temperature2_para_ksp_monitor
+#-adv_fieldsplit_temperature2_para_ksp_converged_reason
+-adv_fieldsplit_temperature2_para_pc_mg_log
+#
+-adv_fieldsplit_temperature2_perp_log_view
+-adv_fieldsplit_temperature2_perp_ksp_type cg
+-adv_fieldsplit_temperature2_perp_pc_type gamg
+-adv_fieldsplit_temperature2_perp_pc_gamg_agg_nsmooths 1
+-adv_fieldsplit_temperature2_perp_pc_gamg_threshold -0.02
+-adv_fieldsplit_temperature2_perp_mg_levels_esteig_ksp_type cg
+-adv_fieldsplit_temperature2_perp_mg_levels_esteig_ksp_max_it 10
+-adv_fieldsplit_temperature2_perp_mg_levels_ksp_chebyshev_esteig 0,.05,0,1.05
+-adv_fieldsplit_temperature2_perp_mg_levels_ksp_type richardson
+-adv_fieldsplit_temperature2_perp_mg_levels_pc_type sor
+-adv_fieldsplit_temperature2_perp_mg_levels_ksp_max_it 20
+-adv_fieldsplit_temperature2_perp_ksp_monitor
+#-adv_fieldsplit_temperature2_perp_ksp_converged_reason
+-adv_fieldsplit_temperature2_perp_pc_mg_log
+#
+#
+# general PETSc parameters
+#
+#-info
+#-malloc_debug
+#-malloc_dump
+#-fp_trap
+#-mat_view ::ascii_matlab
+#-vec_view :x.m:ascii_matlab
+-mat_ascii_output_large
+#-mat_view ascii::ascii_info
+#-options_left
+-log_view
+####-schur_mat_type dense
+-ainvb_mat_type dense
+-mat_partitioning_type parmetis
+
+#
+# collision solver
+#
+#-col_f_ksp_converged_reason 
+#-col_f_ksp_view
+#-col_f_ksp_monitor

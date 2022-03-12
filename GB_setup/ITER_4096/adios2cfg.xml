@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!-- XGC Config XML file for ADIOS2 -->
+<adios-config>
+    <io name="restart">
+        <engine type="BPFile">
+            <parameter key="collectivemetadata" value="On"/>
+            <parameter key="Profile" value="Off"/>
+            <parameter key="SubStreams" value="2048"/>
+        </engine>
+    </io>
+    <io name="restartf0">
+        <engine type="BPFile">
+            <parameter key="collectivemetadata" value="On"/>
+            <parameter key="Profile" value="Off"/>
+            <parameter key="SubStreams" value="2048"/>
+        </engine>
+    </io>
+    <io name="f3d">
+        <engine type="BPFile">
+            <parameter key="collectivemetadata" value="On"/>
+            <parameter key="Profile" value="Off"/>
+            <parameter key="SubStreams" value="128"/>
+        </engine>
+    </io>
+    <io name="f0">
+        <engine type="BPFile">
+            <parameter key="collectivemetadata" value="On"/>
+            <parameter key="Profile" value="Off"/>
+            <parameter key="SubStreams" value="2048"/>
+        </engine>
+    </io>
+    <io name="diagnosis.f0.mesh">
+        <engine type="BPFile">
+            <parameter key="collectivemetadata" value="On"/>
+            <parameter key="Profile" value="Off"/>
+            <parameter key="SubStreams" value="128"/>
+        </engine>
+    </io>
+    <io name="particles">
+        <engine type="BPFile">
+            <parameter key="collectivemetadata" value="On"/>
+            <parameter key="Profile" value="Off"/>
+            <parameter key="SubStreams" value="2048"/>
+        </engine>
+    </io>
+</adios-config>

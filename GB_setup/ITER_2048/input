@@ -1,0 +1,331 @@
+&sml_param
+sml_node_file='iter_15MA_H_em_xgc1_v3.node'
+sml_ele_file='iter_15MA_H_em_xgc1_v3.ele'
+sml_surf_file='iter_15MA_H_em_xgc1_fixed_v3.flx.aif'
+sml_bp_sign=1.D0
+sml_bt_sign=-1.D0
+sml_special=0             ! 0: normal simulation, 1: single particle simulation
+sml_dt=5.0D-5             ! delta-t for one time step - unit of toroidal transit time.
+sml_mstep=200            ! total time step
+sml_deltaf=.true.         ! delta-f simulation switch - incomplete
+sml_deltaf_elec=.true.
+sml_deltaf_f0_mode=-2
+sml_dwdt_exb_only=.false.
+sml_electron_on=.true.
+sml_bounce=0              ! Particle motion boundary condition 
+                          ! 1 for edge simulation (including open field line region)
+                          ! 2 for core simulation (excluding open field line region)
+sml_ff_order=4
+sml_ff_step=2
+sml_bounce_zero_weight=0  ! Set w1 to zero after bounce
+sml_bounce_buffer=0.05D0
+sml_inpsi=0.0D0            ! inner boundary of simulation - unit of eq_x_psi
+sml_outpsi=1.13D0           ! outer boundary of simulation - unit of eq_x_psi
+sml_outpsi_priv1=0.92
+sml_restart_write_period=100
+sml_restart=.true.
+sml_initial_deltaf_noise=1D-15
+sml_guess_table_size=1200
+sml_input_file_dir='../XGC-1_inputs/'
+sml_00_npsi=150
+sml_bd_ext_delta1=-0.01
+sml_bd_ext_delta2=-0.02
+sml_bd_ext_delta3=0.06 ! n=0 mode potential boundary (outer)
+sml_bd_ext_delta4=0.08 ! n=0 mode charge boundary (outer)
+sml_bd_ext_delta1H=0.61
+sml_bd_ext_delta2H=0.71
+sml_bd_ext_delta3H=0.06
+sml_bd_ext_delta4H=0.08
+sml_bd_ext_delta_Ai=0.61
+sml_bd_ext_delta_ji=0.71
+sml_bd_ext_delta_Ao=0.08
+sml_bd_ext_delta_jo=0.10
+ 
+sml_rhomax=1.3D-2
+sml_grid_nrho=8
+sml_ncycle_half=8
+sml_sheath_mode=1
+sml_sheath_adjust=.true.
+sml_sheath_init_pot_factor=2.0D0
+sml_sheath_adjust_factor=0.25D0
+sml_poisson_solver_type=0
+sml_iter_solver=.true.
+sml_iter_solver_niter=10
+sml_update_poisson_solver=.false.
+sml_update_poisson_solver_nstep=1
+sml_update_ampere_solver=.false.
+sml_update_ampere_solver_nstep=1
+sml_use_pade=.true.
+sml_turb_efield=.true.
+sml_00_efield=.true.
+sml_exclude_private=.true.
+sml_exclude_private_turb=.true.
+sml_em_exclude_private=.true.
+sml_no_turb=.false.
+
+sml_mode_select_mode=5
+sml_mode_select_n=1
+sml_mode_select_nmin=1
+sml_mode_select_nmax=7
+sml_mode_select_nmin_real=6
+sml_mode_select_nmax_real=255
+sml_mode_select_mres_q=1
+sml_mode_select_num_m_damp=3
+sml_mode_select_damp_width=1.5
+sml_mode_select_cutoff=4
+sml_mode_select_bands_on=.true.
+sml_mode_select_inpsi=0.03D0
+sml_mode_select_outpsi=1.07D0
+sml_mode_select_bd_width=0.01D0
+sml_mode_select_div_mix=.false.
+sml_mode_select_no_m0=.true.
+sml_mode_select_use_minm=.true.
+sml_mode_select_sol_mode=1
+
+sml_f0_grid=.true.	 ! full-f mode
+sml_f0_grid_alpha=0.000D0
+sml_f0_grid_alpha_start=1000
+sml_symmetric_f=.false.
+sml_f_source_period=2
+sml_pol_decomp=.true.
+sml_nphi_total=16
+sml_wedge_n=4
+sml_max_imbalance=1.20D0
+
+sml_neutral=.false.
+sml_radiation=.false.
+sml_source=.false.
+sml_initial_flow=.false.
+
+sml_flat_marker=.true.
+sml_flat_marker_cutoff1=4.1D0
+sml_flat_marker_decay_start1=4.0D0
+sml_flat_marker_width1=0.05D0
+sml_flat_marker_decay_start2=4.0D0
+sml_use_loading_factor=.true.
+sml_limit_marker_den=.false.
+sml_min_loading_factor=0.05D0
+sml_max_loading_factor=20D0
+
+sml_monte_num=5000000
+
+! collision load balancing
+sml_f0_grid_lbal_period=5
+sml_f0_grid_max_ptl_imbal=5
+sml_f0_grid_min_ptl_imbal=1
+sml_ptl_imbal_ion=6D0
+sml_f0_grid_init_ptl_imbal=1.10
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! When setting sml_resamp_on to true,
+!!! make sure to set sml_nphi_total=4
+!!! and start with a total of ~6 million
+!!! particles per species
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+sml_resamp_on=.false.
+
+sml_drift_on=.true.
+
+sml_grad_psitheta=.true.
+
+sml_node_vol_monte=.true.
+
+sml_em_mixed_variable=.true.
+sml_em_pullback_mode=4
+sml_em_control_variate=.false.
+sml_em_n0=.false.
+sml_em_dasdt_filter_on=.true.
+
+SML_DPOT_TE_LIMIT = 5. 
+/
+
+&ptl_param
+ptl_mass_au=2D0         ! 1 for hydrogen, 2 for deutron
+ptl_e_mass_au=5.454D-4  ! Electron mass relative to proton mass
+ptl_charge_eu=1D0       ! ion charge
+ptl_num=700000           ! number of particles per thread
+ptl_maxnum=1300000       ! max. number of ptl per thread
+/
+
+&f0_param
+f0_nmu=32
+f0_nvp=18
+
+f0_smu_max=4.D0
+f0_vp_max=4.D0
+f0_update_analytic=.false.
+f0_update_analytic_local=.false.
+f0_update_analytic_alpha=0.001
+/
+
+&eq_param ! Initial equilibrium profile - Tanh profile
+eq_filename='iter_15MA_lq.eqd'
+eq_den_shape=-1
+eq_den_v1=4.0D19          ! inside value of density m^-3
+eq_den_v2=0.2D19           ! outside value of density  m^-3
+eq_den_x1=0.975D0      ! pedestal center 
+eq_den_x2=0.05D0    ! pedestal width
+eq_den_v3=0.00
+eq_den_x3=0D0
+eq_den_file='den_ITER_new5.prf'
+
+eq_tempi_shape=-1
+eq_tempe_shape=-1
+eq_tempi_file='tempi_ITER_new5.prf'
+eq_tempe_file='tempe_ITER_new5.prf'
+eq_tempi_x1=0.97D0
+eq_tempe_x1=0.97D0
+eq_tempi_x2=0.07D0
+eq_tempe_x2=0.07D0
+eq_tempi_v1=1D3      ! ion temperature (inside) - eV
+eq_tempi_v2=1d2     ! ion temperature (outside) - eV
+eq_tempe_v1=1D3
+eq_tempe_v2=1D2
+eq_tempi_v3=1.2D3
+eq_tempi_x3=0D0
+eq_tempe_v3=1.2D3
+eq_tempe_x3=0D0
+/
+
+&col_param  ! Collision
+col_mode=4  ! 0 : off , 1 monte-carlo (non-conserving) 2: monte-carlo (conserving)
+col_f_nthreads=1
+/
+
+&ptb_3db_param ! perturbed magnetic field
+ptb_3db_on=.false. !< Switch 3D perturbed field on (.true.) and off (.false.)
+/
+
+&diag_param ! diagnosis
+diag_tracer_n=0
+diag_tracer_period=10
+diag_rmp_period=50
+diag_1d_on=.true.
+diag_1d_period=2
+diag_3d_period=2
+diag_f3d_period=2
+diag_3d_on=.true.
+diag_weight_stats=.true.
+diag_f0_df_on=.true.
+diag_f0_df_period=1
+diag_f0_period=10
+diag_heat_on=.true.
+diag_heat_mode=1
+diag_heat_nphi=1
+diag_heat_spacing=2D-3
+
+diag_heat_nsection=2
+diag_heat_zmin1=-4.5D0
+diag_heat_zmax1=-4.0D0
+diag_heat_rmin1=5.4D0
+diag_heat_rmax1=5.65D0
+diag_heat_nr=200
+diag_heat_nz=190
+diag_heat_zmin2=-3.95D0
+diag_heat_zmax2=-3.4D0
+diag_heat_rmin2=4.1D0
+diag_heat_rmax2=4.4D0
+diag_f0_period=20
+/
+
+&neu_param            ! neutral collision
+neu_col_mode=2
+neu_grid_max_psi=1.2D0
+neu_grid_mode=1
+
+neu_num=1000
+neu_recycle_rate=0.90
+!neu_start_time=1
+!! new model -->
+neu_full_grid=.true.
+neu_background_period=100
+/
+
+&src_param
+
+src_narea=1
+src_heat_power1=13.0D6
+src_pin1=0.4D0
+src_pout1=0.6D0
+src_decay_width1=0.30
+
+src_pin2=0.20D0
+src_pout2=0.7D0
+src_decay_width2=0.2D0
+src_heat_power2=0D0
+src_torque2=0.7D0
+
+src_narea_e=3
+src_heat_power1_e=37D6
+src_pin1_e=0.4
+src_pout1_e=0.60
+src_decay_width1_e=0.30
+
+src_heat_power2_e=-8D6
+src_pin2_e=0.94
+src_pout2_e=0.99
+src_decay_width2_e=0.05
+
+src_pin3_e=0.90D0
+src_pout3_e=1.07D0
+src_decay_width3_e=0.03
+src_heat_power3_e=-5D6
+src_special_mode3_e=1
+src_z_begin3_e=3.442D0
+/
+
+&smooth_param
+smooth_pol_efield=.true.
+smooth_pol_width=8
+smooth_pol_d0=3.0D0
+smooth_rad_efield=.false.
+
+smooth_fourier_filt_on=.true.
+smooth_sol_filt_lp0=0.10D0
+smooth_sol_filt_width=0.025D0
+smooth_fourier_filt_maxm=25
+smooth_fourier_filt_minm=0
+smooth_fourier_filt_outpsi=13.
+/
+
+&mon_param
+!mon_flush_count=120
+mon_flush_freq=10
+/
+
+&rad_param
+/
+
+&adios_param
+/
+
+&coupling_param
+sml_coupling_on=.false.
+/
+
+&diff_param
+diff_on=.false.
+/
+
+&resamp_param
+resamp_rate=20
+resamp_min_ratio=0.90D0
+resamp_max_ratio=1.05D0
+resamp_max_target=30
+resamp_var = 1.0D-2                      !< threshold for relative standard deviation in bin for auto-resample
+resamp_tile_size = 2                     !< Bin size on the velocity space grid in cells (not vertices)
+resamp_ineq_tol = 1D-5                   !< Threshold for relative error in the inequality constraints in the QP optimization
+resamp_retry = .false.                   !< Retry QP optimization for failed bins with relaxed inequality constraints
+resamp_ineq_tol_max = 1D-4               !< Maximal threshold for relative error in inequality constraints for retried bins
+resamp_highv_max = 10D0                  !< energy cutoff of the high velocity bins v_para>f0_vp_max and v_perp>f0_smu_max
+resamp_highv_max_ratio = 4D0             !< Downsampling threshold for high-velocity bins
+resamp_fill_empty=.false.                !< Whether to fill empty bins
+resamp_fullf_on=.true.                  !< Whether to resample the full-f weights in addition to delta-f weights
+resamp_grid_ineq_on=.false.              !< Switch for using inequality constraints for the grid charge for resampling
+/
+
+&cce_fcoupling
+/
+
+&cce_phicoupling
+/

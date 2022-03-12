@@ -1,0 +1,31 @@
+#!/bin/tcsh
+#BSUB -env "all"
+#BSUB -P phy122
+#BSUB -J su464_iter.1
+#BSUB -W 9:00
+#BSUB -nnodes 1024
+#BSUB -o output.o%J
+#BSUB -alloc_flags SMT2
+##BSUB -alloc_flags gpumps
+#BSUB -B
+#BSUB -N
+##BSUB -w ended(1129460)
+mkdir -p restart_dir
+
+source ../module_load_list.txt_nvhpc21.7
+#module load forge/20.1
+
+
+setenv OMP_NUM_THREADS 14
+
+bjobs -l > bjobsl.txt
+
+date
+
+
+
+jsrun --smpiargs="-mca coll_ibm_collselect_mode_barrier failsafe" --progress progress.out.0 --rs_per_host 6 --nrs 6144  -g 1 -a 1 -c 7 -b rs  /usr/bin/stdbuf -oL -eL /gpfs/alpine/scratch/shku/phy122/XGC-Devel/debug2/bin/xgc-eem-cpp-gpu
+
+
+
+date
