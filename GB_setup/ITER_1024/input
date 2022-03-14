@@ -297,7 +297,9 @@ mon_flush_freq=10
 /
 
 &adios_param
+adios_stage_3d=.true.
 /
+
 
 &coupling_param
 sml_coupling_on=.false.
