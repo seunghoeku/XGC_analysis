@@ -27,4 +27,8 @@
         <!-- Output of diffusion analysis code -->
         <engine type="FileStream"></engine>
     </io>
+    <io name="field3D">
+        <!-- Output of diffusion analysis code -->
+        <engine type="FileStream"></engine>
+    </io>
 </adios-config>

@@ -61,8 +61,9 @@ if __name__ == "__main__":
     assert size == np.prod(decomposition)
 
     vars = list()
-    with ad2.open(args.infile, 'r', comm=comm) as fh:
+    with ad2.open(args.infile, 'r', comm=comm, config_file="adios2cfg.xml", io_in_config_file="field3D") as fh:
         for fstep in fh:     
+            istep = fstep.current_step()   
             var_list = list()
             if args.var is None:
                 var_list.extend(fstep.available_variables())
@@ -92,11 +93,10 @@ if __name__ == "__main__":
                     start, count = list(zip(*z))
 
                 if start is not None:
-                    logging.info((var, nsize, start, count))
+                    logging.info((istep, var, nsize, start, count))
                     val = fstep.read(var, start=start, count=count)
                     vars.append((var, nsize, start, count, val))
         
-            istep = fstep.current_step()   
             fname = '%s.%d.bp'%(args.outfile, istep%args.npanout)
             with ad2.open(fname, mode='a', comm=comm, engine_type=args.outengine) as fw:
                 for var, shape, start, count, val in vars:
