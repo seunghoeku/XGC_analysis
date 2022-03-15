@@ -108,6 +108,9 @@ if __name__ == "__main__":
 
             fname = "%s.%d.bp" % (args.outfile, istep % args.npanout)
             logging.info("Writing: %s" % fname)
-            with ad2.open(fname, mode="a", comm=comm, engine_type=args.outengine) as fw:
+            mode = "w" if istep < args.npanout else "a"
+            with ad2.open(
+                fname, mode=mode, comm=comm, engine_type=args.outengine
+            ) as fw:
                 for var, shape, start, count, val in vars:
                     fw.write(var, val, shape, start, count)
