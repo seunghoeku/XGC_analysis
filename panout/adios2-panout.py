@@ -65,7 +65,6 @@ if __name__ == "__main__":
 
     assert size == np.prod(decomposition)
 
-    vars = list()
     with ad2.open(
         args.infile,
         "r",
@@ -76,6 +75,7 @@ if __name__ == "__main__":
         for fstep in fh:
             istep = fstep.current_step()
             var_list = list()
+            vars = list()
             if args.var is None:
                 var_list.extend(fstep.available_variables())
             else:
@@ -88,8 +88,7 @@ if __name__ == "__main__":
                 # print (var, nstep, ndim, nsize)
 
                 if ndim == 0:
-                    if rank == 0:
-                        start, count = (), ()
+                    start, count = (), ()
                 else:
                     x = list()
                     for i in range(ndim):
@@ -103,13 +102,12 @@ if __name__ == "__main__":
                     z = list(itertools.product(*x))[rank]
                     start, count = list(zip(*z))
 
-                if start is not None:
-                    logging.info((istep, var, nsize, start, count))
-                    val = fstep.read(var, start=start, count=count)
-                    vars.append((var, nsize, start, count, val))
+                logging.info((istep, var, nsize, start, count))
+                val = fstep.read(var, start=start, count=count)
+                vars.append((var, nsize, start, count, val))
 
             fname = "%s.%d.bp" % (args.outfile, istep % args.npanout)
-            logging.info("Writing: %s"%fname)
+            logging.info("Writing: %s" % fname)
             with ad2.open(fname, mode="a", comm=comm, engine_type=args.outengine) as fw:
                 for var, shape, start, count, val in vars:
                     fw.write(var, val, shape, start, count)
