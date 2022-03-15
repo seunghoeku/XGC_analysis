@@ -84,12 +84,10 @@ if __name__ == "__main__":
             for var in var_list:
                 nstep, nsize = adios2_get_shape(fstep, var)
                 ndim = len(nsize)
-                start, count = None, None
+                start, count = (), ()
                 # print (var, nstep, ndim, nsize)
 
-                if ndim == 0:
-                    start, count = (), ()
-                else:
+                if ndim > 0:
                     x = list()
                     for i in range(ndim):
                         y = list()
