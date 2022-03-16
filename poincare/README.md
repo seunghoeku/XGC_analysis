@@ -35,6 +35,15 @@ make
 Below is an example to run on a cyclone dataset on Summit.
 
 ```
-jsrun -n1 -a1 -c20 -g1 ./build/examples/poincare/Simple2.3  --vField B --dir /gpfs/alpine/proj-shared/csc143/pugmire/summit/vtkm/data/POINC --traces 0 --useHighOrder --turbulence 1 --range 2.5 3.5 --numSeeds 10000 --gpu  --worklet 2 --output OUTPUT --numPunc 200 --gpuParams 256 128 --stepSize 0.1
+Running cyclone case:
+
+jsrun -n1 -a1 -c20 -g1 ./examples/poincare/Poincare  --vField B --dir ../data/run_1920 --traces 0 --useHighOrder --turbulence 1 --psiRange .05 .95 10 8 --gpu  --output OUTPUT --numPunc 200 --gpuParams 256 128 --stepSize 0.1 --test
+
+Running Streaming case:
+Reading panout.1
+
+jsrun -n1 -a1 -c20 -g1 ./examples/poincare/Poincare  --vField B --dir ../data/XGC_GB/test_GB_small_su455 --traces 0 --useHighOrder --turbulence 1 --psiRange .1 .9 4 2 --openmp  --output OUTPUT.1 --numPunc 500 --gpuParams 256 128 --stepSize 0.05 --useLinearB --streaming xgc.3d.panout.1.bp
+
+Note: this uses --useLinearB while I fix the issue with interpolation.
 
 ```
