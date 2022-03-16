@@ -34,6 +34,7 @@
 
 #include "XGCParameters.h"
 #include "FindMaxR.h"
+#include "EvalField.h"
 #include "RunPoincare2.h"
 
 adios2::ADIOS *adios = NULL;
@@ -68,6 +69,7 @@ std::ostream& operator<< (std::ostream& out, const std::vector<T>& v)
   out<<"]";
   return out;
 }
+
 
 //using ArgumentType = std::variant<std::vector<int>, std::vector<float>, std::vector<std::string>>;
 bool
@@ -125,34 +127,50 @@ ParseArgs(int argc, char **argv, std::map<std::string, std::vector<std::string>>
 class adiosS
 {
 public:
-    adiosS() {}
-    adiosS(adios2::ADIOS *adiosPtr,
-           const std::string &fn,
-           const std::string &ioNm,
-           const std::map<std::string, std::string> &args) : ioName(ioNm)
-    {
-        std::string pathNm = ".";
+  adiosS() {}
+  adiosS(adios2::ADIOS *adiosPtr,
+         const std::string &fn,
+         const std::string &ioNm,
+         const std::map<std::string, std::string> &args) : ioName(ioNm)
+  {
+    std::string pathNm = ".";
 
-        auto x = args.find("--dir")->second;
-        if (x.size() > 0) pathNm = x;
-        this->fileName = pathNm + "/" + fn;
-        std::cout<<"Open: "<<this->fileName<<std::endl;
-        this->io = adios2::IO(adiosPtr->DeclareIO(this->ioName));
-        this->engine = io.Open(fileName, adios2::Mode::Read);
-    }
-    ~adiosS() { engine.Close(); }
-    adiosS& operator=(const adiosS &a)
-    {
-        ioName = a.ioName;
-        fileName = a.fileName;
-        io = a.io;
-        engine = a.engine;
-        return *this;
-    }
+    auto x = args.find("--dir")->second;
+    if (x.size() > 0) pathNm = x;
+    this->fileName = pathNm + "/" + fn;
+    std::cout<<"Open: "<<this->fileName<<std::endl;
+    this->io = adios2::IO(adiosPtr->DeclareIO(this->ioName));
+    this->engine = io.Open(this->fileName, adios2::Mode::Read);
+  }
 
-    std::string ioName, fileName;
-    adios2::IO io;
-    adios2::Engine engine;
+  adiosS(adios2::ADIOS *adiosPtr,
+         const std::string &fn,
+         const std::string &ioNm)
+    : ioName(ioNm)
+    , fileName(fn)
+  {
+    this->io = adios2::IO(adiosPtr->DeclareIO(this->ioName));
+    this->engine = io.Open(this->fileName, adios2::Mode::Write);
+  }
+
+  ~adiosS()
+  {
+    std::cout<<"Closing "<<this->fileName<<std::endl;
+    this->engine.Close();
+  }
+
+  adiosS& operator=(const adiosS &a)
+  {
+    this->ioName = a.ioName;
+    this->fileName = a.fileName;
+    this->io = a.io;
+    this->engine = a.engine;
+    return *this;
+  }
+
+  std::string ioName, fileName;
+  adios2::IO io;
+  adios2::Engine engine;
 };
 
 void
@@ -252,7 +270,8 @@ void
 ReadPsiInterp(adiosS* eqStuff,
               adiosS* interpStuff,
               vtkm::cont::DataSet& ds,
-              XGCParameters& xgcParams)
+              XGCParameters& xgcParams,
+              std::map<std::string, std::vector<std::string>>& args)
 {
   eqStuff->engine.Get(eqStuff->io.InquireVariable<int>("eq_mr"), &xgcParams.eq_mr, adios2::Mode::Sync);
   eqStuff->engine.Get(eqStuff->io.InquireVariable<int>("eq_mz"), &xgcParams.eq_mz, adios2::Mode::Sync);
@@ -361,47 +380,48 @@ ReadPsiInterp(adiosS* eqStuff,
   }
 
 
-  //Put this on a 2D grid for debugging...
-  vtkm::Vec2f origin2D(xgcParams.eq_min_r, xgcParams.eq_min_z);
-  vtkm::Vec2f spacing2D((xgcParams.eq_max_r-xgcParams.eq_min_r)/double(xgcParams.eq_mr-1), (xgcParams.eq_max_z-xgcParams.eq_min_z)/double(xgcParams.eq_mz-1));
-  auto ds2D = vtkm::cont::DataSetBuilderUniform::Create(vtkm::Id2(xgcParams.eq_mr, xgcParams.eq_mr),
-                                                        origin2D, spacing2D);
-
-  std::vector<vtkm::FloatDefault> c00;
-  std::vector<std::vector<std::vector<vtkm::FloatDefault>>> cij(4);
-  for (int k = 0; k < 4; k++) cij[k].resize(4);
-
-  for (int i = 0; i < nz; i++)
-    for (int j = 0; j < nr; j++)
-    {
-      c00.push_back(coeff_2D[i][j][0][0]);
-      for (int k = 0; k < 4; k++)
-        for (int m = 0; m < 4; m++)
-          cij[k][m].push_back(coeff_2D[i][j][k][m]);
-    }
-
-  //ds2D.AddPointField("c00", c00);
-  for (int k = 0; k < 4; k++)
+  if (args.find("--dumpPsiGrid") != args.end())
   {
-    for (int m = 0; m < 4; m++)
-    {
-      char nm[32];
-      sprintf(nm, "c%d%d", k,m);
-      //std::cout<<"Add cij: "<<nm<<" "<<cij[k][m].size()<<std::endl;
-      ds2D.AddCellField(nm, cij[k][m]);
-    }
-  }
+    //Put this on a 2D grid for debugging...
+    vtkm::Vec2f origin2D(xgcParams.eq_min_r, xgcParams.eq_min_z);
+    vtkm::Vec2f spacing2D((xgcParams.eq_max_r-xgcParams.eq_min_r)/double(xgcParams.eq_mr-1), (xgcParams.eq_max_z-xgcParams.eq_min_z)/double(xgcParams.eq_mz-1));
+    auto ds2D = vtkm::cont::DataSetBuilderUniform::Create(vtkm::Id2(xgcParams.eq_mr, xgcParams.eq_mr),
+                                                          origin2D, spacing2D);
 
-#if 0
-  //ds2D.AddCellField("bum", cij[0][0]);
-  //ds.PrintSummary(std::cout);
-  vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
-  vtkm::cont::ArrayHandle<vtkm::Vec3f> b3d;
-  ds.GetField("eq_psi_rz").GetData().AsArrayHandle(arr);
-  ds2D.AddPointField("eq_psi_rz", arr);
-  vtkm::io::VTKDataSetWriter writer("psiGrid.vtk");
-  writer.WriteDataSet(ds2D);
-#endif
+    std::vector<vtkm::FloatDefault> c00;
+    std::vector<std::vector<std::vector<vtkm::FloatDefault>>> cij(4);
+    for (int k = 0; k < 4; k++) cij[k].resize(4);
+
+    for (int i = 0; i < nz; i++)
+      for (int j = 0; j < nr; j++)
+      {
+        c00.push_back(coeff_2D[i][j][0][0]);
+        for (int k = 0; k < 4; k++)
+          for (int m = 0; m < 4; m++)
+            cij[k][m].push_back(coeff_2D[i][j][k][m]);
+      }
+
+    //ds2D.AddPointField("c00", c00);
+    for (int k = 0; k < 4; k++)
+    {
+      for (int m = 0; m < 4; m++)
+      {
+        char nm[32];
+        sprintf(nm, "c%d%d", k,m);
+        //std::cout<<"Add cij: "<<nm<<" "<<cij[k][m].size()<<std::endl;
+        ds2D.AddCellField(nm, cij[k][m]);
+      }
+    }
+
+    //ds2D.AddCellField("bum", cij[0][0]);
+    //ds.PrintSummary(std::cout);
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
+    vtkm::cont::ArrayHandle<vtkm::Vec3f> b3d;
+    ds.GetField("eq_psi_rz").GetData().AsArrayHandle(arr);
+    ds2D.AddPointField("eq_psi_rz", arr);
+    vtkm::io::VTKDataSetWriter writer("psiGrid.vtk");
+    writer.WriteDataSet(ds2D);
+  }
 
 
 //  ds.GetField("B_RZP").GetData().AsArrayHandle(b3d);
@@ -549,7 +569,8 @@ SaveOutput(const std::vector<std::vector<vtkm::Vec3f>>& traces,
            const vtkm::cont::ArrayHandle<vtkm::Vec2f>& outRZ,
            const vtkm::cont::ArrayHandle<vtkm::Vec2f>& outTP,
            const vtkm::cont::ArrayHandle<vtkm::Id>& outID,
-           const std::string& outFileName = "")
+           const std::string& outFileName = "",
+           int timeStep=0)
 {
   std::string tracesNm, puncNm, puncThetaPsiNm, adiosNm;
   if (outFileName.empty())
@@ -564,7 +585,7 @@ SaveOutput(const std::vector<std::vector<vtkm::Vec3f>>& traces,
     tracesNm = outFileName + ".traces.txt";
     puncNm = outFileName + ".punc.vtk";
     puncThetaPsiNm = outFileName + ".punc.theta_psi.vtk";
-    adiosNm = outFileName + ".adios.bp";
+    adiosNm = outFileName + ".bp";
   }
 
   bool tExists = Exists(tracesNm);
@@ -599,9 +620,13 @@ SaveOutput(const std::vector<std::vector<vtkm::Vec3f>>& traces,
   */
 
   //save to adios
-  std::vector<vtkm::FloatDefault> ptsRZ(100);
-  adios2::ADIOS adiosW;
-  adios2::IO io = adiosW.DeclareIO("io");
+  bool firstTime = false;
+  if (adiosStuff.find("output") == adiosStuff.end())
+  {
+    adiosStuff["output"] = new adiosS(adios, adiosNm, "output");
+    firstTime = true;
+  }
+  adiosS* outputStuff = adiosStuff["output"];
 
   std::size_t nPts = static_cast<std::size_t>(outRZ.GetNumberOfValues());
 
@@ -610,29 +635,27 @@ SaveOutput(const std::vector<std::vector<vtkm::Vec3f>>& traces,
   auto TPBuff = vtkm::cont::ArrayHandleBasic<vtkm::Vec2f>(outTP).GetReadPointer();
   auto IDBuff = vtkm::cont::ArrayHandleBasic<vtkm::Id>(outID).GetReadPointer();
 
-  std::vector<std::size_t> shape = {nPts*2}, offset = {0}, size = {nPts*2};
-  auto vRZ = io.DefineVariable<vtkm::FloatDefault>("RZ", shape, offset, size);
-  auto vTP = io.DefineVariable<vtkm::FloatDefault>("ThetaPsi", shape, offset, size);
-  std::vector<std::size_t> shape2 = {nPts}, size2 = {nPts};
-  auto vID = io.DefineVariable<vtkm::Id>("ID", shape2, offset, size2);
-
-  adios2::Engine bpWriter = io.Open(adiosNm, adios2::Mode::Write);
-  bpWriter.Put<vtkm::FloatDefault>(vRZ, &(RZBuff[0][0]));
-  bpWriter.Put<vtkm::FloatDefault>(vTP, &(TPBuff[0][0]));
-  bpWriter.Put<vtkm::Id>(vID, IDBuff);
-  bpWriter.Close();
-
-  /*
-  //write punctures
-  for (int i = 0; i < (int)punctures.size(); i++)
+  if (firstTime)
   {
-    for (const auto& p : punctures[i])
-      outPunc<<std::setprecision(12)<<i<<", "<<p[0]<<", "<<p[2]<<std::endl;
+    std::vector<std::size_t> shape = {nPts*2}, offset = {0}, size = {nPts*2};
+    outputStuff->io.DefineVariable<vtkm::FloatDefault>("RZ", shape, offset, size);
+    outputStuff->io.DefineVariable<vtkm::FloatDefault>("ThetaPsi", shape, offset, size);
+    outputStuff->io.DefineVariable<int>("TimeStep", {1}, {0}, {1});
 
-    for (const auto& p : puncturesTP[i])
-      outPuncThetaPsi<<std::setprecision(12)<<i<<", "<<p[0]<<", "<<p[1]<<std::endl;
+    std::vector<std::size_t> shape2 = {nPts}, size2 = {nPts};
+    outputStuff->io.DefineVariable<vtkm::Id>("ID", shape2, offset, size2);
   }
-  */
+  auto vRZ = outputStuff->io.InquireVariable<vtkm::FloatDefault>("RZ");
+  auto vTP = outputStuff->io.InquireVariable<vtkm::FloatDefault>("ThetaPsi");
+  auto vID = outputStuff->io.InquireVariable<vtkm::Id>("ID");
+  auto vTS = outputStuff->io.InquireVariable<int>("TimeStep");
+
+  outputStuff->engine.BeginStep();
+  outputStuff->engine.Put<vtkm::FloatDefault>(vRZ, &(RZBuff[0][0]));
+  outputStuff->engine.Put<vtkm::FloatDefault>(vTP, &(TPBuff[0][0]));
+  outputStuff->engine.Put<vtkm::Id>(vID, IDBuff);
+  outputStuff->engine.Put<int>(vTS, &timeStep);
+  outputStuff->engine.EndStep();
 }
 
 /*
@@ -674,7 +697,8 @@ void
 Poincare(const vtkm::cont::DataSet& ds,
          XGCParameters& xgcParams,
          vtkm::cont::ArrayHandle<vtkm::Particle>& seeds,
-         std::map<std::string, std::vector<std::string>>& args)
+         std::map<std::string, std::vector<std::string>>& args,
+         int timeStep=0)
 {
 
   //Get the arguments.
@@ -749,7 +773,7 @@ Poincare(const vtkm::cont::DataSet& ds,
     }
   }
 
-  SaveOutput(traces, outRZ, outTP, outID, outFileName);
+  SaveOutput(traces, outRZ, outTP, outID, outFileName, timeStep);
 }
 
 vtkm::cont::ArrayHandle<vtkm::FloatDefault>
@@ -1010,7 +1034,7 @@ ReadStaticData(std::map<std::string, std::vector<std::string>>& args,
   std::cout<<"********                  PSI m/M = "<<xgcParams.psi_min<<" "<<xgcParams.psi_max<<std::endl;
 
   auto ds = ReadMesh(meshStuff, xgcParams);
-  ReadPsiInterp(equilStuff, coeffStuff, ds, xgcParams);
+  ReadPsiInterp(equilStuff, coeffStuff, ds, xgcParams, args);
   ReadScalar(meshStuff, xgcParams, ds, "psi");
   ReadB(bfieldStuff, xgcParams, ds);
 
@@ -1109,7 +1133,7 @@ ReadDataSet_ORIG(std::map<std::string, std::vector<std::string>>& args, XGCParam
 
   ReadOther(bfieldStuff, ds, "As_phi_ff");
   ReadOther(bfieldStuff, ds, "dAs_phi_ff");
-  ReadPsiInterp(equilStuff, interp_coeffStuff, ds, xgcParams);
+  ReadPsiInterp(equilStuff, interp_coeffStuff, ds, xgcParams, args);
 
   CalcAs(ds, xgcParams);
   Calc_dAs(ds, xgcParams);
@@ -1198,7 +1222,7 @@ ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters
   std::cout<<"********                  PSI m/M = "<<xgcParams.psi_min<<" "<<xgcParams.psi_max<<std::endl;
 
   auto ds = ReadMesh(meshStuff, xgcParams);
-  ReadPsiInterp(equilStuff, initStuff, ds, xgcParams);
+  ReadPsiInterp(equilStuff, initStuff, ds, xgcParams, args);
 
   adios2::StepStatus status;
   for (int i = 0; i < step; i++)
@@ -1561,7 +1585,7 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
   auto ds = ReadStaticData(args, xgcParams, "xgc.poincare_init.bp");
 
   std::string fName = args["--streaming"][0];
-  std::string outFileNameBase = args["--output"][0];
+  std::string outputFile = args["--output"][0];
 
   adiosStuff["data"] = new adiosS(adios, fName, "3d", adiosArgs);
   auto dataStuff = adiosStuff["data"];
@@ -1596,10 +1620,8 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
 
     auto seeds = GenerateSeeds(ds, xgcParams, args);
 
-    std::string outputFile = outFileNameBase + "." + std::to_string(timeStep);
     std::cout<<"Dump to "<<outputFile<<std::endl;
-    args["--output"][0] = outputFile;
-    Poincare(ds, xgcParams, seeds, args);
+    Poincare(ds, xgcParams, seeds, args, timeStep);
 
     step++;
   }
@@ -1649,6 +1671,35 @@ main(int argc, char** argv)
   else
     vtkm::cont::GetRuntimeDeviceTracker().ForceDevice(vtkm::cont::DeviceAdapterTagCuda{});
 
+
+  if (args.find("--debug") != args.end())
+  {
+    XGCParameters xgcParams;
+    auto ds = ReadDataSet(args, xgcParams);
+
+    vtkm::FloatDefault R = std::atof(args["--debug"][0].c_str());
+    vtkm::FloatDefault Z = std::atof(args["--debug"][1].c_str());
+    vtkm::Vec3f pt(R,Z,0);
+
+    auto psiLinear = EvalField(pt, ds, "psi2D");
+    std::cout<<"LinearPsi= "<<psiLinear<<std::endl;
+
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
+    ds.GetField("coeff_2D").GetData().AsArrayHandle(arr);
+    auto coeff = arr.ReadPortal();
+    vtkm::Id ncoeff = xgcParams.eq_mr-1;
+    vtkm::Id2 nrz(xgcParams.eq_mr, xgcParams.eq_mz);
+    vtkm::Vec2f rzmin(xgcParams.eq_min_r, xgcParams.eq_min_z);
+    vtkm::Vec2f drz((xgcParams.eq_max_r-xgcParams.eq_min_r)/static_cast<vtkm::FloatDefault>(xgcParams.eq_mr-1),
+                    (xgcParams.eq_max_z-xgcParams.eq_min_z)/static_cast<vtkm::FloatDefault>(xgcParams.eq_mz-1));
+
+    vtkm::Vec2f ptRZ(R,Z);
+    auto psiHigh = InterpolatePsi(ptRZ,  coeff, ncoeff, nrz, rzmin, drz);
+    std::cout<<"PsiHigh= "<<psiHigh<<std::endl;
+
+    return 0;
+  }
+
   if (args.find("--streaming") != args.end())
   {
     StreamingPoincare(args);
@@ -1663,6 +1714,10 @@ main(int argc, char** argv)
     auto seeds = GenerateSeeds(ds, xgcParams, args);
     Poincare(ds, xgcParams, seeds, args);
   }
+
+  //close all the adios stuff.
+  for (auto& i : adiosStuff)
+    delete i.second;
 
   return 0;
 }

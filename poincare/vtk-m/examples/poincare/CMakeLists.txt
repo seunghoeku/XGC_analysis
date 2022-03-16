@@ -18,6 +18,7 @@ set(Poincare_srcs
  Poincare.cxx
  FindMaxR.cxx
  RunPoincare2.cxx
+ EvalField.cxx
  )
 # Simple2.3.FindAllCells.cxx
 # Simple2.3.NormalizeField.cxx
