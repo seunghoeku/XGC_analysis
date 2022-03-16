@@ -43,7 +43,7 @@ Particle search(t_ParticleDB &db, int timestep, long long int gid);
 void add(t_ParticlesList &pmap, Particle ptl);
 void ptldb_save(t_ParticleDB &db, std::string filename);
 void ptldb_load(t_ParticleDB &db, std::string filename);
-void ptldb_print(t_ParticleDB &db);
+void ptldb_print(t_ParticleDB &db, std::string str);
 void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm);
 
 //#include "particles.tpp"

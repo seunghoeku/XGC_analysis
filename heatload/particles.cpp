@@ -159,7 +159,7 @@ void ptldb_load(t_ParticleDB &db, std::string filename)
     }
 }
 
-void ptldb_print(t_ParticleDB &db)
+void ptldb_print(t_ParticleDB &db, std::string str)
 {
     int istep = 0;
     for (auto const &plist : db)
@@ -169,7 +169,7 @@ void ptldb_print(t_ParticleDB &db)
         {
             nptls += inner.second.size();
         }
-        LOG << "DB info: step " << istep << " : " << nptls;
+        LOG << str << " info: step " << istep << " : " << nptls;
         istep++;
     }
 }

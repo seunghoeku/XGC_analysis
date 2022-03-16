@@ -11,6 +11,22 @@ adios2::Engine writer;
 
 extern Simulation sml;
 
+inline void vec_reduce(double *dat, int size, MPI_Comm comm)
+{
+    int comm_size, rank;
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Comm_rank(comm, &rank);
+
+    if (rank == 0)
+    {
+        MPI_Reduce(MPI_IN_PLACE, dat, size, MPI_DOUBLE, MPI_SUM, 0, comm);
+    }
+    else
+    {
+        MPI_Reduce(dat, dat, size, MPI_DOUBLE, MPI_SUM, 0, comm);
+    }
+}
+
 void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec, MPI_Comm comm)
 {
     // (2022/03/16) TODO: parallel output
@@ -20,7 +36,7 @@ void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec, MPI_Comm comm)
 
     static bool first = true;
 
-    if (first)
+    if ((rank == 0) && (first))
     {
         output_io = ad->DeclareIO("heatload");
         output_io.DefineVariable<double>("psi", {N_SIDE, N_PSI}, {0, 0}, {N_SIDE, N_PSI});
@@ -31,7 +47,7 @@ void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec, MPI_Comm comm)
 
         output_io.DefineVariable<double>("io.side", {N_SIDE + 1}, {0}, {N_SIDE + 1});
 
-        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write, comm);
+        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write, MPI_COMM_SELF);
 
         first = false;
     }
@@ -67,17 +83,32 @@ void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec, MPI_Comm comm)
         }
     }
 
-    // save psi, ion.side[0:N_SIDE].en[0:N_COND][0:N_PSI] and ptl[0:NCOND][0:N_PSI] and electron.
-    writer.BeginStep();
-    writer.Put<double>("psi", psi);
-    writer.Put<double>("ienflux", ienflux);
-    writer.Put<double>("iptlflux", iptlflux);
-    writer.Put<double>("eenflux", eenflux);
-    writer.Put<double>("eptlflux", eptlflux);
-    writer.EndStep();
+    vec_reduce(psi, N_SIDE * N_PSI, comm);
+    vec_reduce(ienflux, N_SIDE * N_COND * N_PSI, comm);
+    vec_reduce(iptlflux, N_SIDE * N_COND * N_PSI, comm);
+    vec_reduce(eenflux, N_SIDE * N_COND * N_PSI, comm);
+    vec_reduce(eptlflux, N_SIDE * N_COND * N_PSI, comm);
+
+    if (rank == 0)
+    {
+        // save psi, ion.side[0:N_SIDE].en[0:N_COND][0:N_PSI] and ptl[0:NCOND][0:N_PSI] and electron.
+        writer.BeginStep();
+        writer.Put<double>("psi", psi);
+        writer.Put<double>("ienflux", ienflux);
+        writer.Put<double>("iptlflux", iptlflux);
+        writer.Put<double>("eenflux", eenflux);
+        writer.Put<double>("eptlflux", eptlflux);
+        writer.EndStep();
+    }
 }
 
-void output_finalize()
+void output_finalize(MPI_Comm comm)
 {
-    writer.Close();
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    if (rank == 0)
+    {
+        writer.Close();
+    }
 }

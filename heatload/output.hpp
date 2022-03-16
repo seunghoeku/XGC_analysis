@@ -3,4 +3,4 @@
 #include "sml.hpp"
 
 void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec, MPI_Comm comm); // output graphs or data for graphs
-void output_finalize();
+void output_finalize(MPI_Comm comm);

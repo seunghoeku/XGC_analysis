@@ -79,6 +79,8 @@ int heatload_step(adios2::ADIOS *ad, int istep)
     // separate divertor particles and escaped particles
     iesc_db.push_back(iesc);
     eesc_db.push_back(eesc);
+    ptldb_print(iesc_db, "iesc_db");
+    ptldb_print(iesc_db, "eesc_db");
 
     // store escaped particles to DB
 
@@ -96,7 +98,7 @@ int heatload_step(adios2::ADIOS *ad, int istep)
 void heatload_finalize()
 {
     load_finalize();
-    output_finalize();
+    output_finalize(heatload_comm);
 
     if (heatload_comm_rank == 0)
     {
@@ -161,5 +163,5 @@ void heatload(adios2::ADIOS *ad)
     }
 
     load_finalize();
-    output_finalize();
+    output_finalize(heatload_comm);
 }
