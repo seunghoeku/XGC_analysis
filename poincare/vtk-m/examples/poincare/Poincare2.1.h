@@ -1,18 +1,3 @@
-#ifndef PoincareWorklet2_h
-#define PoincareWorklet2_h
-
-#include <vtkm/Geometry.h>
-#include <vtkm/Matrix.h>
-#include <vtkm/Particle.h>
-#include <vtkm/cont/CellLocatorTwoLevel.h>
-#include <vtkm/worklet/WorkletMapField.h>
-
-#include "XGCParameters.h"
-
-using Ray3f = vtkm::Ray<vtkm::FloatDefault, 3, true>;
-
-
-
 //
 //./examples/poincare/Simple2.3 --vField B --dir ../data/sku_8000/POINC --worklet 1 --traces 1 --numPunc 2 --stepSize 0.01 --useHighOrder --jong1 --output bumm
 
@@ -74,7 +59,7 @@ jsrun -n 192 -a1 -c1 -g0 -r32 -brs /usr/bin/stdbuf -oL -eL ./xgc-eem-rel 2>&1 | 
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-class PoincareWorklet2 : public vtkm::worklet::WorkletMapField
+class PoincareWorklet2_1 : public vtkm::worklet::WorkletMapField
 {
   using DimensionType = vtkm::Int16;
   using DimVec3 = vtkm::Vec<DimensionType, 3>;
@@ -102,8 +87,8 @@ public:
                                 WholeArrayIn dAs_phi_ff_RZP,
                                 WholeArrayIn coeff_1D,
                                 WholeArrayIn coeff_2D,
-                                WholeArrayIn B_RZP,
-                                WholeArrayIn Psi,
+                                WholeArrayIn AsUniform,
+                                WholeArrayIn dAsUniform,
                                 WholeArrayInOut traces,
                                 WholeArrayInOut outputRZ,
                                 WholeArrayInOut outputTP,
@@ -111,42 +96,56 @@ public:
   using ExecutionSignature = void(InputIndex, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14);
   using InputDomain = _1;
 
-  PoincareWorklet2(vtkm::Id maxPunc,
-                   vtkm::FloatDefault planeVal,
-                   vtkm::FloatDefault stepSize,
-                   bool saveTraces,
-                   const XGCParameters& xgcParams)
+  PoincareWorklet2_1(vtkm::Id maxPunc,
+                     vtkm::FloatDefault planeVal,
+                     vtkm::FloatDefault stepSize,
+                     bool saveTraces,
+                     bool quickTest)
     : MaxIter(maxPunc * 1000000)
     , MaxPunc(maxPunc)
     , PlaneVal(planeVal)
     , StepSize(stepSize)
     , SaveTraces(saveTraces)
+    , QuickTest(quickTest)
   {
-    this->NumPlanes = xgcParams.numPlanes;
-    this->NumNodes = xgcParams.numNodes;
+    this->NumPlanes = numPlanes;
+    this->NumNodes = numNodes;
     this->dPhi = vtkm::TwoPi()/static_cast<vtkm::FloatDefault>(this->NumPlanes);
     this->StepSize_2 = this->StepSize / 2.0;
     this->StepSize_6 = this->StepSize / 6.0;
 
 
-    this->nr = xgcParams.eq_mr-1;
-    this->nz = xgcParams.eq_mz-1;
-    this->rmin = xgcParams.eq_min_r;
-    this->rmax = xgcParams.eq_max_r;
-    this->zmin = xgcParams.eq_min_z;
-    this->zmax = xgcParams.eq_max_z;
-    this->EqAxisR = xgcParams.eq_axis_r;
-    this->EqAxisZ = xgcParams.eq_axis_z;
-    this->EqXPsi = xgcParams.eq_x_psi;
-    this->dr = (xgcParams.eq_max_r - xgcParams.eq_min_r) / vtkm::FloatDefault(this->nr);
-    this->dz = (xgcParams.eq_max_z - xgcParams.eq_min_z) / vtkm::FloatDefault(this->nz);
+    this->nr = eq_mr-1;
+    this->nz = eq_mz-1;
+    this->rmin = eq_min_r;
+    this->rmax = eq_max_r;
+    this->zmin = eq_min_z;
+    this->zmax = eq_max_z;
+    this->EqAxisR = eq_axis_r;
+    this->EqAxisZ = eq_axis_z;
+    this->EqXPsi = eq_x_psi;
+    this->dr = (eq_max_r - eq_min_r) / vtkm::FloatDefault(this->nr);
+    this->dz = (eq_max_z - eq_min_z) / vtkm::FloatDefault(this->nz);
     this->dr_inv = 1.0/this->dr;
     this->dz_inv = 1.0/this->dz;
 
-    this->ncoeff = xgcParams.eq_mr-1;
-    this->min_psi = xgcParams.psi_min;
-    this->max_psi = xgcParams.psi_max;
-    this->one_d_cub_dpsi_inv = 1.0 / ((this->max_psi-this->min_psi)/vtkm::FloatDefault(this->ncoeff));
+    this->ncoeff = eq_mr-1;
+    this->min_psi = psi_min;
+    this->max_psi = psi_max;
+    this->one_d_cub_dpsi_inv = 1.0 / ((max_psi-min_psi)/vtkm::FloatDefault(this->ncoeff));
+  }
+
+  void SetAsGrid(const vtkm::Vec3f& origin,
+                 const vtkm::Vec3f& spacing,
+                 const vtkm::Vec3f& maxPt,
+                 const vtkm::Id3& dims)
+  {
+    this->Origin = origin;
+    this->Spacing = spacing;
+    this->MaxPt = maxPt;
+    this->Dims = dims;
+    this->CellDims = {this->Dims[0]-1, this->Dims[1]-1, this->Dims[2]-1};
+    this->InvSpacing = {1/this->Spacing[0], 1/this->Spacing[1], 1/this->Spacing[2]};
   }
 
   template <typename Coeff_1DType, typename Coeff_2DType>
@@ -162,8 +161,8 @@ public:
     int z_i = this->GetIndex(Z, this->nz, this->zmin, this->dz_inv);
 
     // rc(i), zc(j)
-    vtkm::FloatDefault Rc = this->rmin + (vtkm::FloatDefault)(r_i)*this->dr;
-    vtkm::FloatDefault Zc = this->zmin + (vtkm::FloatDefault)(z_i)*this->dz;
+    vtkm::FloatDefault Rc = rmin + (vtkm::FloatDefault)(r_i)*this->dr;
+    vtkm::FloatDefault Zc = zmin + (vtkm::FloatDefault)(z_i)*this->dz;
     auto Rc_1 = Rc + this->dr;
     auto Zc_1 = Zc + this->dz;
     Rc = (Rc + Rc_1) * 0.5;
@@ -371,7 +370,7 @@ public:
     return true;
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename BFieldType, typename PsiType, typename OutputType, typename OutputType2D, typename IdType>
+  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename AsUniformType, typename dAsUniformType, typename OutputType, typename OutputType2D, typename IdType>
   VTKM_EXEC void operator()(const vtkm::Id& idx,
                             vtkm::Particle& particle,
                             const LocatorType& locator,
@@ -381,8 +380,8 @@ public:
                             const DAsFieldType& DAsPhiFF_RZP,
                             const Coeff_1DType& Coeff_1D,
                             const Coeff_2DType& Coeff_2D,
-                            const BFieldType& B_RZP,
-                            const PsiType& Psi,
+                            const AsUniformType& AsUniform,
+                            const dAsUniformType& dAsUniform_RZP,
                             OutputType& traces,
                             OutputType2D& outputRZ,
                             OutputType2D& outputTP,
@@ -392,6 +391,19 @@ public:
     CALLGRIND_START_INSTRUMENTATION;
     CALLGRIND_TOGGLE_COLLECT;
 #endif
+
+    if (this->QuickTest)
+    {
+      for (vtkm::Id p = 0; p < this->MaxPunc; p++)
+      {
+        vtkm::Id i = (idx * this->MaxPunc) + p;
+        outputRZ.Set(i, vtkm::Vec2f(0,0));
+        outputTP.Set(i, vtkm::Vec2f(0,0));
+        punctureID.Set(i, idx);
+      }
+
+      return;
+    }
 
     DBG("Begin: "<<particle<<std::endl);
 
@@ -405,7 +417,7 @@ public:
 
 
       if (!this->TakeRK4Step(particle.Pos, pInfo, locator, cellSet, coords,
-                             AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, B_RZP, newPos))
+                             AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, AsUniform, dAsUniform_RZP, newPos))
       {
         break;
       }
@@ -433,17 +445,7 @@ public:
         //vtkm::FloatDefault psi;
         //vtkm::Vec3f B0_rzp, curlB_rzp, curl_nb_rzp, gradPsi_rzp;
         //vtkm::Vec<vtkm::Vec3f, 3> jacobian_rzp;
-        if (this->UseLinearB)
-        {
-          vtkm::Vec3f ptRZ(R, Z, 0), param;
-          vtkm::Vec<vtkm::Id,3> vids;
-          this->PtLoc(ptRZ, pInfo, locator, cellSet, coords, param, vids);
-          pInfo.Psi = this->EvalS(Psi, 0, vids, param);
-        }
-        else
-        {
-          this->HighOrderB(ptRPZ, pInfo, Coeff_1D, Coeff_2D);
-        }
+        this->HighOrderB(ptRPZ, pInfo, Coeff_1D, Coeff_2D); //, B0_rzp, jacobian_rzp, curlB_rzp, curl_nb_rzp, psi, gradPsi_rzp);
 
         vtkm::Id i = (idx * this->MaxPunc) + particle.NumPunctures;
         outputRZ.Set(i, vtkm::Vec2f(R, Z));
@@ -476,7 +478,7 @@ public:
 #endif
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename BFieldType>
+  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename AsUniformType, typename dAsUniformType>
   VTKM_EXEC
   bool TakeRK4Step(const vtkm::Vec3f& ptRPZ,
                    ParticleInfo& pInfo,
@@ -487,7 +489,8 @@ public:
                    const DAsFieldType& DAsPhiFF_RZP,
                    const Coeff_1DType& Coeff_1D,
                    const Coeff_2DType& Coeff_2D,
-                   const BFieldType& B_RZP,
+                   const AsUniformType& AsUniform,
+                   const dAsUniformType& dAsUniform_RZP,
                    vtkm::Vec3f& res) const
   {
     vtkm::Vec3f k1, k2, k3, k4;
@@ -501,19 +504,19 @@ public:
 
     DBG("    ****** K1"<<std::endl);
     bool v1, v2, v3, v4;
-    v1 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, B_RZP, k1);
+    v1 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, AsUniform, dAsUniform_RZP, k1);
     tmp = p0 + k1*this->StepSize_2;
 
     DBG("    ****** K2"<<std::endl);
-    v2 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, B_RZP, k2);
+    v2 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, AsUniform, dAsUniform_RZP, k2);
     tmp = p0 + k2*this->StepSize_2;
 
     DBG("    ****** K3"<<std::endl);
-    v3 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, B_RZP, k3);
+    v3 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, AsUniform, dAsUniform_RZP, k3);
     tmp = p0 + k3*this->StepSize;
 
     DBG("    ****** K4"<<std::endl);
-    v4 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, B_RZP, k4);
+    v4 = this->Evaluate(tmp, pInfo, locator, cellSet, coords, AsPhiFF, DAsPhiFF_RZP, Coeff_1D, Coeff_2D, AsUniform, dAsUniform_RZP, k4);
 
     vtkm::Vec3f vec = (k1 + 2*k2 + 2*k3 + k4)/6.0;
     res = p0 + this->StepSize * vec;
@@ -555,6 +558,74 @@ public:
 #endif
     return s;
   }
+
+  template <typename PortalType>
+  VTKM_EXEC
+  vtkm::FloatDefault
+  EvalS8(const PortalType& sPortal,
+         const vtkm::Id& offset,
+         const vtkm::Vec<vtkm::Id, 8>& vId,
+         const vtkm::Vec3f& param) const
+  {
+    vtkm::FloatDefault s;
+    vtkm::VecVariable<vtkm::FloatDefault, 8> vals;
+    for (int i = 0; i < 8; i++)
+      vals.Append(sPortal.Get(vId[i]+offset));
+
+    vtkm::exec::CellInterpolate(vals, param, vtkm::CellShapeTagHexahedron(), s);
+    return s;
+  }
+
+  template <typename PortalType>
+  VTKM_EXEC
+  vtkm::Vec3f
+  EvalV8(const PortalType& vPortal,
+         const vtkm::Id& offset,
+         const vtkm::Vec<vtkm::Id, 8>& vId,
+         const vtkm::Vec3f& param) const
+  {
+    vtkm::Vec3f v;
+    vtkm::VecVariable<vtkm::Vec3f, 8> vals;
+    for (int i = 0; i < 8; i++)
+      vals.Append(vPortal.Get(vId[i]+offset));
+
+    vtkm::exec::CellInterpolate(vals, param, vtkm::CellShapeTagHexahedron(), v);
+    return v;
+  }
+
+  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsType, typename dAsType>
+  VTKM_EXEC
+  void
+  CompareAs(const vtkm::Vec3f& ptRZ,
+            const AsType& AsPhiFF,
+            const dAsType& DAsPhiFF_RZP,
+            ParticleInfo& pInfo,
+            const LocatorType& locator,
+            const CellSetType& cellSet,
+            const CoordsType& coords,
+            const vtkm::Id& offset,
+            const vtkm::FloatDefault& s0,
+            const vtkm::FloatDefault& s1,
+            const vtkm::Vec3f& v0,
+            const vtkm::Vec3f& v1) const
+  {
+    vtkm::Vec3f x_ff_param;
+    vtkm::Vec<vtkm::Id,3> x_ff_vids;
+
+    this->PtLoc(ptRZ, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
+    auto As_ff0 = this->EvalS(AsPhiFF, offset, x_ff_vids, x_ff_param);
+    auto As_ff1 = this->EvalS(AsPhiFF, offset+this->NumNodes, x_ff_vids, x_ff_param);
+    auto dAs_ff0_rzp = this->EvalV(DAsPhiFF_RZP, offset, x_ff_param, x_ff_vids);
+    auto dAs_ff1_rzp = this->EvalV(DAsPhiFF_RZP, offset+this->NumNodes, x_ff_param, x_ff_vids);
+
+    vtkm::FloatDefault errS0 = vtkm::Abs(As_ff0-s0);
+    vtkm::FloatDefault errS1 = vtkm::Abs(As_ff1-s1);
+    vtkm::FloatDefault errV0 = vtkm::Magnitude(v0-dAs_ff0_rzp);
+    vtkm::FloatDefault errV1 = vtkm::Magnitude(v1-dAs_ff1_rzp);
+
+    std::cout<<std::setprecision(16)<<" Errors: "<<errS0<<" "<<errS1<<" "<<errV0<<" "<<errV1<<std::endl;
+  }
+
 
   template <typename PortalType>
   VTKM_EXEC
@@ -803,6 +874,113 @@ public:
     return true;
   }
 
+  VTKM_EXEC
+  vtkm::Id CellLocUniform(const vtkm::Vec3f& ptRZN,
+                          vtkm::Id3& logicalCell,
+                          vtkm::Vec3f& param) const
+  {
+    vtkm::Id cellId = -1;
+
+    const vtkm::FloatDefault& R= ptRZN[0], Z = ptRZN[1], N = ptRZN[2];
+    if (R < this->Origin[0] || R > this->MaxPt[0]) return cellId;
+    if (Z < this->Origin[1] || Z > this->MaxPt[1]) return cellId;
+    if (N < this->Origin[2] || N > this->MaxPt[2]) return cellId;
+
+    auto tmpR = (R-this->Origin[0])*this->InvSpacing[0];
+    auto tmpZ = (Z-this->Origin[1])*this->InvSpacing[1];
+    auto tmpN = (N-this->Origin[2])*this->InvSpacing[2];
+
+    logicalCell = {vtkm::Id(tmpR), vtkm::Id(tmpZ), vtkm::Id(tmpN)};
+    cellId = (logicalCell[2] * this->CellDims[1] + logicalCell[1]) * this->CellDims[0] + logicalCell[0];
+
+    param[0] = tmpR - logicalCell[0];
+    param[1] = tmpZ - logicalCell[1];
+    param[2] = tmpN - logicalCell[2];
+
+    return cellId;
+  }
+
+  template <typename AsUniformType, typename DAsUniformType>
+  VTKM_EXEC
+  bool PtUniformEval(const vtkm::Vec3f& ptRZP,
+                     const vtkm::Id& N,
+                     const AsUniformType& AsUniform,
+                     const DAsUniformType& DAsUniform_RZP,
+                     vtkm::FloatDefault& as0,
+                     vtkm::FloatDefault& as1,
+                     vtkm::Vec3f& dAs0_rzp,
+                     vtkm::Vec3f& dAs1_rzp) const
+  {
+    vtkm::Vec3f ptRZN(ptRZP[0], ptRZP[1], 0);
+    vtkm::Id3 ijk;
+    vtkm::Vec3f param;
+    vtkm::Id cellId = this->CellLocUniform(ptRZN, ijk, param);
+
+    if (cellId < 0)
+      return false;
+
+    if (this->UseAsCell)
+    {
+      vtkm::Id ncells2d = this->CellDims[0]*this->CellDims[1];
+      vtkm::Id offset0 = 2*N*ncells2d;
+      vtkm::Id offset1 = offset0 + ncells2d;
+
+      as0 = AsUniform.Get(offset0 + cellId);
+      as1 = AsUniform.Get(offset1 + cellId);
+      dAs0_rzp = DAsUniform_RZP.Get(offset0 + cellId);
+      dAs1_rzp = DAsUniform_RZP.Get(offset1 + cellId);
+    }
+    else
+    {
+      int npts2d = this->Dims[0] * this->Dims[1];
+      vtkm::Id offset0 = 2*N*npts2d;
+      vtkm::Id offset1 = offset0 + npts2d;
+
+      vtkm::Vec<vtkm::Id,4> ptIds;
+      this->PtLocUniform(ptRZP, param, ptIds);
+
+      vtkm::VecVariable<vtkm::FloatDefault, 4> valsS0, valsS1;
+      vtkm::VecVariable<vtkm::Vec3f, 4> valsV0, valsV1;
+      for (vtkm::Id i = 0; i < 4; i++)
+      {
+        valsS0.Append(AsUniform.Get(offset0 + ptIds[i]));
+        valsS1.Append(AsUniform.Get(offset1 + ptIds[i]));
+
+        valsV0.Append(DAsUniform_RZP.Get(offset0 + ptIds[i]));
+        valsV1.Append(DAsUniform_RZP.Get(offset1 + ptIds[i]));
+      }
+
+      vtkm::exec::CellInterpolate(valsS0, param, vtkm::CellShapeTagQuad(), as0);
+      vtkm::exec::CellInterpolate(valsS1, param, vtkm::CellShapeTagQuad(), as1);
+      vtkm::exec::CellInterpolate(valsV0, param, vtkm::CellShapeTagQuad(), dAs0_rzp);
+      vtkm::exec::CellInterpolate(valsV1, param, vtkm::CellShapeTagQuad(), dAs1_rzp);
+    }
+
+    return true;
+  }
+
+  VTKM_EXEC
+  bool PtLocUniform(const vtkm::Vec3f& ptRZ,
+                    vtkm::Vec3f& param,
+                    vtkm::Vec<vtkm::Id, 4>& ptIds) const
+  {
+    vtkm::Id3 ijk;
+    vtkm::Id cellId = this->CellLocUniform(ptRZ, ijk, param);
+
+    if (cellId == -1)
+      return false;
+
+    //vtkm::Vec<vtkm::Id, 8> pointIds;
+    ptIds[0] = ijk[0] + this->Dims[0]*ijk[1];
+    ptIds[1] = ptIds[0] + 1;
+    ptIds[2] = ptIds[1] + this->Dims[0];
+    ptIds[3] = ptIds[2] - 1;
+
+
+    //std::cout<<"PtLocUniform param= "<<param<<std::endl;
+    return true;
+  }
+
   template <typename LocatorType, typename CellSetType, typename CoordsType>
   VTKM_EXEC
   bool PtLoc(const vtkm::Vec3f& ptRZ,
@@ -829,8 +1007,8 @@ public:
       ParticleInfo p2Info = pInfo;
       p2Info.PrevCell = vtkm::Id3(-1,-1,-1);
       this->FindCell(ptRZ, p2Info, locator, cs, coords, p2, cid2);
-      //if (cid2 != cellId) std::cout<<" **************************** WRONG"<<std::endl;
-      //if (vtkm::Magnitude(p2-param) > 1e-10) std::cout<<" **************************** WRONG"<<std::endl;
+      if (cid2 != cellId) std::cout<<" **************************** WRONG"<<std::endl;
+      if (vtkm::Magnitude(p2-param) > 1e-10) std::cout<<" **************************** WRONG"<<std::endl;
     }
 
     //vtkm::VecVariable<vtkm::Id, 3> tmp;
@@ -1162,18 +1340,19 @@ public:
     return true;
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename BFieldType>
+  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename AsUniformType, typename dAsUniformType>
   VTKM_EXEC
   bool Evaluate(const vtkm::Vec3f& ptRPZ,
                 ParticleInfo& pInfo,
-                const LocatorType& locator,
-                const CellSetType& cellSet,
-                const CoordsType& coords,
-                const AsFieldType& AsPhiFF,
-                const DAsFieldType& DAsPhiFF_RZP,
+                const LocatorType& vtkmNotUsed(locator),
+                const CellSetType& vtkmNotUsed(cellSet),
+                const CoordsType& vtkmNotUsed(coords),
+                const AsFieldType& vtkmNotUsed(AsPhiFF),
+                const DAsFieldType& vtkmNotUsed(DAsPhiFF_RZP),
                 const Coeff_1DType& coeff_1D,
                 const Coeff_2DType& coeff_2D,
-                const BFieldType& B_RZP,
+                const AsUniformType& AsUniform,
+                const dAsUniformType& dAsUniform_RZP,
                 vtkm::Vec3f& res) const
   {
     auto R = ptRPZ[0];
@@ -1181,18 +1360,8 @@ public:
     auto Z = ptRPZ[2];
 
     //res is R,P,Z
-    if (this->UseLinearB)
-    {
-      vtkm::Vec3f ptRZ(ptRPZ[0], ptRPZ[2], 0), param;
-      vtkm::Vec<vtkm::Id,3> vids;
-      this->PtLoc(ptRZ, pInfo, locator, cellSet, coords, param, vids);
-      pInfo.B0_rzp = this->EvalV(B_RZP, 0, param, vids);
-    }
-    else
-    {
-      if (!this->HighOrderB(ptRPZ, pInfo, coeff_1D, coeff_2D))
-        return false;
-    }
+    if (!this->HighOrderB(ptRPZ, pInfo, coeff_1D, coeff_2D))
+      return false;
     if (this->UseBOnly)
     {
       pInfo.B0_rzp[2] /= R;
@@ -1221,10 +1390,6 @@ public:
     //vtkm::Vec3f x_ff_rzp(ptOnMidPlane_rpz[0], ptOnMidPlane_rpz[2], 0);
     vtkm::Vec3f x_ff_rzp(ff_pt_rpz[0], ff_pt_rpz[2], 0);
 
-    int offsets[2];
-    offsets[0] = planeIdx0*this->NumNodes*2;
-    offsets[1] = planeIdx0*this->NumNodes*2 + this->NumNodes;
-
     const vtkm::FloatDefault basis = 0.0f;
     //auto B0_R = B0_rzp[0];
     //auto B0_Z = B0_rzp[1];
@@ -1246,17 +1411,89 @@ public:
     zvec[1] = basis + (1.0-basis) * gammaPsi *   gradPsi_rzp[0];
 
     //Get the vectors in the ff coordinates.
+    //int offsets[2];
+    //offsets[0] = planeIdx0*this->NumNodes*2;
+    //offsets[1] = planeIdx0*this->NumNodes*2 + this->NumNodes;
     //auto dAs_ff_rzp = EvalVector(ds, locator, {x_ff_rzp, x_ff_rzp}, "dAs_ff_rzp", offsets);
     //auto dAs_ff0_rzp = dAs_ff_rzp[0];
     //auto dAs_ff1_rzp = dAs_ff_rzp[1];
 
+    vtkm::FloatDefault As_ff0, As_ff1;
+    vtkm::Vec3f dAs_ff0_rzp, dAs_ff1_rzp;
+#if 0
     vtkm::Vec3f x_ff_param;
     vtkm::Vec<vtkm::Id,3> x_ff_vids;
 
     this->PtLoc(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
     //this->PtLoc2(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
-    auto dAs_ff0_rzp = this->EvalV(DAsPhiFF_RZP, offsets[0], x_ff_param, x_ff_vids);
-    auto dAs_ff1_rzp = this->EvalV(DAsPhiFF_RZP, offsets[1], x_ff_param, x_ff_vids);
+    As_ff0 = this->EvalS(AsPhiFF, offsets[0], x_ff_vids, x_ff_param);
+    As_ff1 = this->EvalS(AsPhiFF, offsets[1], x_ff_vids, x_ff_param);
+    dAs_ff0_rzp = this->EvalV(DAsPhiFF_RZP, offsets[0], x_ff_param, x_ff_vids);
+    dAs_ff1_rzp = this->EvalV(DAsPhiFF_RZP, offsets[1], x_ff_param, x_ff_vids);
+#else
+
+    this->PtUniformEval(x_ff_rzp, planeIdx0, AsUniform, dAsUniform_RZP, As_ff0, As_ff1, dAs_ff0_rzp, dAs_ff1_rzp);
+
+/*
+    vtkm::Vec3f x_ff_param;
+    vtkm::Vec<vtkm::Id,3> x_ff_vids;
+    this->PtLoc(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
+    auto s0 = this->EvalS(AsPhiFF, offsets[0], x_ff_vids, x_ff_param);
+    auto s1 = this->EvalS(AsPhiFF, offsets[1], x_ff_vids, x_ff_param);
+    auto v0 = this->EvalV(DAsPhiFF_RZP, offsets[0], x_ff_param, x_ff_vids);
+    auto v1 = this->EvalV(DAsPhiFF_RZP, offsets[1], x_ff_param, x_ff_vids);
+
+    std::cout<<std::setprecision(16);
+    std::cout<<"As error: "<<vtkm::Abs(s0-As_ff0)<<" "<<vtkm::Abs(s1-As_ff1)<<" :: ";
+    std::cout<<vtkm::Magnitude(v0-dAs_ff0_rzp)<<" "<<vtkm::Magnitude(v1-dAs_ff1_rzp)<<std::endl;
+*/
+
+#if 0
+    if (0)
+    {
+      //Try out idx=1743;
+      //1743 Pt: [2.64244,-0.787784,0] N= 0 param= [0.660383,0.254209,0]
+      //cid: 35750 vids= 18192 17739 18191
+      //As:  2.37354e-06 2.8495e-06 2.35432e-06 --> 2.68297e-06
+      //dAs: [4.91915e-05,-1.93399e-06,2.37345e-07] [4.44913e-05,-2.02264e-06,3.80232e-07] [4.91054e-05,-1.80048e-06,2.60285e-07] --> [4.60657e-05,-1.95859e-06,3.37537e-07]
+
+      auto x = vtkm::Vec3f(3.0, 0.1, 0.0);
+      planeIdx0 = 12;
+
+      vtkm::FloatDefault s0, s1;
+      vtkm::Vec3f v0, v1;
+      this->PtUniformEval(x_ff_rzp, planeIdx0, AsUniform, dAsUniform_RZP, s0, s1, v0, v1);
+      std::cout<<"idx0: "<<x<<" "<<s0<<" "<<s1<<" "<<v0<<" "<<v1<<std::endl;
+    }
+#endif
+
+    //this->CompareAs(x_ff_rzp, AsPhiFF, DAsPhiFF_RZP, pInfo, locator, cellSet, coords, planeIdx0, As_ff0, As_ff1, dAs_ff0_rzp, dAs_ff1_rzp);
+
+
+/*
+    vtkm::VecVariable<vtkm::FloatDefault, 8> vals8;
+    for (int i = 0; i < 8; i++) vals8.Append(AsUniform.Get(x_ff_vids8[i]));
+    vtkm::FloatDefault s0;
+    vtkm::exec::CellInterpolate(vals8, x_ff_param, vtkm::CellShapeTagHexahedron(), s0);
+
+    vtkm::VecVariable<vtkm::FloatDefault, 8> vals82;
+    for (int i = 0; i < 8; i++) vals82.Append(AsUniform.Get(x_ff_vids8[i] + this->NumNodes));
+    vtkm::FloatDefault s1;
+    vtkm::exec::CellInterpolate(vals82, x_ff_param, vtkm::CellShapeTagHexahedron(), s1);
+
+    vtkm::Vec<vtkm::Id,3> x_ff_vids;
+    this->PtLoc(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
+    As_ff0 = this->EvalS(AsPhiFF, offsets[0], x_ff_vids, x_ff_param);
+    As_ff1 = this->EvalS(AsPhiFF, offsets[1], x_ff_vids, x_ff_param);
+    dAs_ff0_rzp = this->EvalV(DAsPhiFF_RZP, offsets[0], x_ff_param, x_ff_vids);
+    dAs_ff1_rzp = this->EvalV(DAsPhiFF_RZP, offsets[1], x_ff_param, x_ff_vids);
+
+    //std::cout<<std::setprecision(16);
+    //std::cout<<"As error: "<<vtkm::Abs(s0-As_ff0)<<" "<<vtkm::Abs(s1-As_ff1)<<std::endl;
+    As_ff0 = s0;
+    As_ff1 = s1;
+*/
+#endif
 
     vtkm::FloatDefault wphi[2] = {T10, T01}; //{T01, T10};
     vtkm::Vec3f gradAs_rpz;
@@ -1283,8 +1520,6 @@ public:
     //std::vector<int> off = {planeIdx0*this->NumNodes};
     //vtkm::Vec3f AsCurl_bhat_rzp = EvalVector(ds, locator, {x_ff_rzp}, "AsCurlBHat_RZP", off)[0];
     //auto AsCurl_bhat_rzp = this->EvalV(AsCurlBHat_RZP, 0, x_ff_vids, x_ff_param);
-    auto As_ff0 = this->EvalS(AsPhiFF, offsets[0], x_ff_vids, x_ff_param);
-    auto As_ff1 = this->EvalS(AsPhiFF, offsets[1], x_ff_vids, x_ff_param);
 
     vtkm::FloatDefault As = wphi[0]*As_ff0 + wphi[1]*As_ff1;
     auto AsCurl_bhat_rzp = As * pInfo.curl_nb_rzp;
@@ -1345,8 +1580,9 @@ public:
   vtkm::FloatDefault dPhi;
 
   bool UseBOnly = false;
+  bool UseHighOrderB = false;
   bool SaveTraces = false;
-  bool UseLinearB = false;
+  bool QuickTest = false;
 
   int nr, nz;
   vtkm::FloatDefault rmin, zmin, rmax, zmax;
@@ -1357,6 +1593,10 @@ public:
   vtkm::FloatDefault min_psi, max_psi;
   vtkm::FloatDefault one_d_cub_dpsi_inv;
   vtkm::FloatDefault sml_bp_sign = -1.0f;
-};
 
-#endif
+  //Uniform As grid stuff.
+  bool UseAsCell = false;
+  vtkm::Vec3f Origin, Spacing, MaxPt;
+  vtkm::Id3 Dims, CellDims;
+  vtkm::Vec3f InvSpacing;
+};

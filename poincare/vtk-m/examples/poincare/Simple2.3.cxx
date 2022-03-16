@@ -23,9 +23,11 @@
 #include <vtkm/cont/DataSetBuilderUniform.h>
 #include <vtkm/cont/DataSetBuilderExplicit.h>
 #include <vtkm/cont/Timer.h>
+#include <vtkm/filter/Contour.h>
+#include <vtkm/filter/PointAverage.h>
 
 #include <vtkm/cont/CellLocatorGeneral.h>
-#include <vtkm/cont/CellLocatorTwoLevelTriangle.h>
+//#include <vtkm/cont/CellLocatorTwoLevelTriangle.h>
 #include <vtkm/cont/CellLocatorBoundingIntervalHierarchy.h>
 #include <vtkm/io/VTKDataSetWriter.h>
 #include <vtkm/cont/Algorithm.h>
@@ -54,12 +56,12 @@ int numPlanes = -1;
 int numNodes = -1;
 int numTri = -1;
 float XScale = 1;
-double eq_axis_r = 2.8, eq_axis_z = 0.0, eq_x_psi = 0.0697345;
-double eq_min_r = 1.60014, eq_max_r = 3.99986;
-double eq_min_z = -1.19986, eq_max_z = 1.19986;
+double eq_axis_r = -1, eq_axis_z = -1, eq_x_psi = -1, eq_x_r = -1, eq_x_z = -1;
+double eq_min_r = -1, eq_max_r = -1;
+double eq_min_z = -1, eq_max_z = 1;
 double psi_min = -1, psi_max = -1;
 int eq_mr = -1, eq_mz = -1;
-//  vtkm::FloatDefault eq_x_psi = 0.0697345, eq_x_r = 2.8, eq_x_z = -0.99988;
+
 using Ray3f = vtkm::Ray<vtkm::FloatDefault, 3, true>;
 
 //#define VALGRIND
@@ -74,6 +76,9 @@ using Ray3f = vtkm::Ray<vtkm::FloatDefault, 3, true>;
 #endif
 #ifdef BUILD_POINC2
 #include "Poincare2.h"
+#include "Poincare2.1.h"
+#include "ComputeAs.h"
+#include "ComputeAsCell.h"
 #endif
 #ifdef BUILD_POINC3
 #include "Poincare3.h"
@@ -192,6 +197,7 @@ ReadOther(adiosS* stuff,
 
   if ((vname == "As_phi_ff" || vname == "dAs_phi_ff")&& useTurb == false)
   {
+    std::cout<<"NO TURB. Zero everything out!"<<std::endl;
     for (auto& x : tmp)
       x = 0.0;
   }
@@ -234,6 +240,15 @@ ReadScalar(adiosS* stuff,
   for (int i = 0; i < numPts; i++)
     tmpPlane[i] = tmp[i];
 
+  //Normalize psi by eq_x_psi
+  /*
+  if (vname == "psi")
+  {
+    for (int i = 0; i < numPts; i++)
+      tmpPlane[i] /= eq_x_psi;
+  }
+  */
+
   if (addExtra && add3D)
   {
     for (int i = 0; i < numNodes; i++)
@@ -258,10 +273,15 @@ ReadPsiInterp(adiosS* eqStuff,
   eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_max_r"), &eq_max_r, adios2::Mode::Sync);
   eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_min_z"), &eq_min_z, adios2::Mode::Sync);
   eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_max_z"), &eq_max_z, adios2::Mode::Sync);
+  eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_x_psi"), &eq_x_psi, adios2::Mode::Sync);
+  eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_x_r"), &eq_x_r, adios2::Mode::Sync);
+  eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_x_z"), &eq_x_z, adios2::Mode::Sync);
+  eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_x_z"), &eq_x_z, adios2::Mode::Sync);
 
   ReadOther(eqStuff, ds, "eq_I");
   ReadOther(eqStuff, ds, "eq_psi_grid");
   ReadOther(eqStuff, ds, "eq_psi_rz");
+  ReadOther(eqStuff, ds, "eq_psi_grid");
   ReadOther(interpStuff, ds, "coeff_1D", "one_d_cub_psi_acoef");
 
   std::vector<double> tmp2D;
@@ -352,10 +372,12 @@ ReadPsiInterp(adiosS* eqStuff,
   }
 
 
+  //Put this on a 2D grid for debugging...
   vtkm::Vec2f origin2D(eq_min_r, eq_min_z);
-  vtkm::Vec2f spacing2D((eq_max_r-eq_min_r)/150., (eq_max_z-eq_min_z)/150.);
-  auto ds2D = vtkm::cont::DataSetBuilderUniform::Create(vtkm::Id2(151, 151),
+  vtkm::Vec2f spacing2D((eq_max_r-eq_min_r)/double(eq_mr-1), (eq_max_z-eq_min_z)/double(eq_mz-1));
+  auto ds2D = vtkm::cont::DataSetBuilderUniform::Create(vtkm::Id2(eq_mr, eq_mr),
                                                         origin2D, spacing2D);
+
   std::vector<vtkm::FloatDefault> c00;
   std::vector<std::vector<std::vector<vtkm::FloatDefault>>> cij(4);
   for (int k = 0; k < 4; k++) cij[k].resize(4);
@@ -381,12 +403,17 @@ ReadPsiInterp(adiosS* eqStuff,
     }
   }
 
+#if 0
   //ds2D.AddCellField("bum", cij[0][0]);
   //ds.PrintSummary(std::cout);
   vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
   vtkm::cont::ArrayHandle<vtkm::Vec3f> b3d;
   ds.GetField("eq_psi_rz").GetData().AsArrayHandle(arr);
   ds2D.AddPointField("eq_psi_rz", arr);
+  vtkm::io::VTKDataSetWriter writer("psiGrid.vtk");
+  writer.WriteDataSet(ds2D);
+#endif
+
 
 //  ds.GetField("B_RZP").GetData().AsArrayHandle(b3d);
 //  std::vector<vtkm::Vec3f> B2D(
@@ -413,6 +440,35 @@ ReadPsiInterp(adiosS* eqStuff,
   //Let's evaluate the b field.
   //vtkm::FloatDefault R = 2, Z = 0;
 }
+
+vtkm::cont::DataSet
+CreateRZPsiGrid(const vtkm::cont::DataSet& ds)
+{
+  vtkm::Vec2f origin2D(eq_min_r, eq_min_z);
+  vtkm::Vec2f spacing2D((eq_max_r-eq_min_r)/double(eq_mr-1), (eq_max_z-eq_min_z)/double(eq_mz-1));
+  auto ds2D = vtkm::cont::DataSetBuilderUniform::Create(vtkm::Id2(eq_mr, eq_mr),
+                                                        origin2D, spacing2D);
+
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> coeff_2D;
+  ds.GetField("coeff_2D").GetData().AsArrayHandle(coeff_2D);
+
+  std::vector<vtkm::FloatDefault> psi;
+  vtkm::Id idx = 0;
+  int nr = eq_mr-1, nz = eq_mz-1;
+  for (int i = 0; i < nr*nz; i++)
+  {
+    psi.push_back(coeff_2D.ReadPortal().Get(idx));
+    idx += 16;
+  }
+
+  ds2D.AddCellField("psiCell", psi);
+
+  vtkm::filter::PointAverage avg;
+  avg.SetOutputFieldName("psi");
+  avg.SetActiveField("psiCell");
+  return avg.Execute(ds2D);
+}
+
 
 //-----------------------------------------------------------------------------
 class NormalizeWorklet : public vtkm::worklet::WorkletMapField
@@ -860,12 +916,13 @@ ConvertPuncturesToThetaPsi(const std::vector<std::vector<vtkm::Vec3f>>& puncture
 void
 Poincare(const vtkm::cont::DataSet& ds,
          std::vector<vtkm::Vec3f>& pts,
+         const std::map<std::string, std::vector<std::string>>& args,
          const std::string& /*vField*/,
          vtkm::FloatDefault h,
          int numPunc,
          int whichWorklet,
          bool useBOnly,
-         bool useHighOrder,
+         bool useHighOrderB,
          vtkm::cont::ArrayHandle<vtkm::Vec2f>& outRZ,
          vtkm::cont::ArrayHandle<vtkm::Vec2f>& outTP,
          vtkm::cont::ArrayHandle<vtkm::Id>& outID,
@@ -880,7 +937,7 @@ Poincare(const vtkm::cont::DataSet& ds,
 {
   //vtkm::cont::CellLocatorGeneral locator;
   vtkm::cont::CellLocatorBoundingIntervalHierarchy locatorBIH;
-  vtkm::cont::CellLocatorTwoLevelTriangle locator2L;
+  vtkm::cont::CellLocatorTwoLevel locator2L;
 
   bool locBIH = false;
   if (locName == "BIH")
@@ -915,7 +972,12 @@ Poincare(const vtkm::cont::DataSet& ds,
     locator2L.Update();
     std::chrono::duration<double> dt = std::chrono::steady_clock::now()-startL;
     std::cout<<"2L build= "<<dt.count()<<std::endl;
+
   }
+
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> eq_psi_gridArr;
+  ds.GetField("eq_psi_grid").GetData().AsArrayHandle(eq_psi_gridArr);
+  auto dPsi = eq_psi_gridArr.ReadPortal().Get(1)-eq_psi_gridArr.ReadPortal().Get(0);
 
   vtkm::cont::Invoker invoker;
   std::vector<vtkm::Particle> s;
@@ -923,7 +985,7 @@ Poincare(const vtkm::cont::DataSet& ds,
     s.push_back(vtkm::Particle(pts[i], i));
   auto seeds = vtkm::cont::make_ArrayHandle(s, vtkm::CopyFlag::On);
 
-  vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_ff, coeff_1D, coeff_2D;
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_ff, coeff_1D, coeff_2D, psi;
   vtkm::cont::ArrayHandle<vtkm::Vec3f> B_rzp, B_Norm_rzp, dAs_ff_rzp;//, AsCurlBHat_rzp, curl_nb_rzp;
   ds.GetField("As_ff").GetData().AsArrayHandle(As_ff);
   ds.GetField("B_RZP").GetData().AsArrayHandle(B_rzp);
@@ -933,6 +995,7 @@ Poincare(const vtkm::cont::DataSet& ds,
   //ds.GetField("curl_nb_rzp").GetData().AsArrayHandle(curl_nb_rzp);
   ds.GetField("coeff_1D").GetData().AsArrayHandle(coeff_1D);
   ds.GetField("coeff_2D").GetData().AsArrayHandle(coeff_2D);
+  ds.GetField("psi2D").GetData().AsArrayHandle(psi);
 
   vtkm::cont::ArrayHandle<vtkm::Vec3f> tracesArr;
   outRZ.Allocate(numPunc*pts.size());
@@ -947,7 +1010,7 @@ Poincare(const vtkm::cont::DataSet& ds,
 #ifdef BUILD_POINC1
     PoincareWorklet worklet(numPunc, 0.0f, h, (traces!=nullptr), quickTest);
     worklet.UseBOnly = useBOnly;
-    worklet.UseHighOrder = useHighOrder;
+    worklet.UseHighOrderB = useHighOrderB;
 
     if (traces != nullptr)
     {
@@ -980,13 +1043,14 @@ Poincare(const vtkm::cont::DataSet& ds,
 #ifdef BUILD_POINC2
     PoincareWorklet2 worklet(numPunc, 0.0f, h, (traces!=nullptr), quickTest);
     worklet.UseBOnly = useBOnly;
-    worklet.UseHighOrder = useHighOrder;
+    worklet.UseHighOrderB = useHighOrderB;
+    worklet.one_d_cub_dpsi_inv = 1.0/dPsi;
 
     if (traces != nullptr)
     {
       std::vector<vtkm::Vec3f> t;
       t.resize(pts.size()*worklet.MaxIter, {-100, -100, -100});
-      std::cout<<"TRACES: "<<t.size()<<std::endl;
+      std::cout<<"Allocate TRACES: "<<t.size()<<std::endl;
       tracesArr = vtkm::cont::make_ArrayHandle(t, vtkm::CopyFlag::On);
     }
 
@@ -996,14 +1060,122 @@ Poincare(const vtkm::cont::DataSet& ds,
       invoker(worklet, seeds,
               locatorBIH,
               ds.GetCellSet(),
+              ds.GetCoordinateSystem(),
               As_ff, dAs_ff_rzp, coeff_1D, coeff_2D,
               tracesArr, outRZ, outTP, outID);
     else
       invoker(worklet, seeds,
               locator2L,
               ds.GetCellSet(),
+              ds.GetCoordinateSystem(),
               As_ff, dAs_ff_rzp, coeff_1D, coeff_2D,
               tracesArr, outRZ, outTP, outID);
+#else
+    std::cout<<"*************************************** Code NOT build with Worklet 2"<<std::endl;
+#endif
+  }
+  else if (whichWorklet == 21)
+  {
+#ifdef BUILD_POINC2
+
+    //Compute the As values on a uniform grid.
+    vtkm::Id3 dims(BGridSize, BGridSize, numPlanes*2);
+    vtkm::FloatDefault dR = (eq_max_r-eq_min_r) / static_cast<vtkm::FloatDefault>(BGridSize-1);
+    vtkm::FloatDefault dZ = (eq_max_z-eq_min_z) / static_cast<vtkm::FloatDefault>(BGridSize-1);
+    vtkm::Vec3f origin(eq_min_r, eq_min_z, 0), maxPt(eq_max_r, eq_max_z, numPlanes*2);
+    vtkm::Vec3f spacing(dR, dZ, 1);
+
+    auto grid = vtkm::cont::DataSetBuilderUniform::Create(dims, origin, spacing);
+    vtkm::cont::ArrayHandleUniformPointCoordinates uniform2DCoords({BGridSize, BGridSize, 1},
+                                                                   origin, {dR, dZ, 0});
+    vtkm::cont::CellSetStructured<2> uniform2DCells;
+    uniform2DCells.SetPointDimensions(vtkm::Id2(BGridSize, BGridSize));
+
+    std::cout<<"********** NumCells= "<<grid.GetCellSet().GetNumberOfCells()<<std::endl;
+    grid.PrintSummary(std::cout);
+
+    /*
+    grid.AddField(vtkm::cont::make_FieldPoint("As", AsUniform));
+    grid.AddField(vtkm::cont::make_FieldPoint("dAs", dAsUniform));
+    vtkm::io::VTKDataSetWriter writer("asGrid.vtk");
+    writer.WriteDataSet(grid);
+    */
+
+    PoincareWorklet2_1 worklet(numPunc, 0.0f, h, (traces!=nullptr), quickTest);
+    worklet.SetAsGrid(origin, spacing, maxPt, dims);
+    worklet.UseBOnly = useBOnly;
+    worklet.UseHighOrderB = useHighOrderB;
+    worklet.UseAsCell = BGridCell;
+
+    /*
+    auto cellCountP = locator2L.CellCount.ReadPortal();
+    vtkm::Id maxCount = cellCountP.Get(0);
+    for (vtkm::Id i = 0; i < cellCountP.GetNumberOfValues(); i++)
+    {
+      vtkm::Id val = cellCountP.Get(i);
+      if (val > maxCount) maxCount = val;
+    }
+    worklet.MaxCellCount = maxCount;
+    */
+
+    if (traces != nullptr)
+    {
+      std::vector<vtkm::Vec3f> t;
+      t.resize(pts.size()*worklet.MaxIter, {-100, -100, -100});
+      std::cout<<"TRACES: "<<t.size()<<std::endl;
+      tracesArr = vtkm::cont::make_ArrayHandle(t, vtkm::CopyFlag::On);
+    }
+
+    vtkm::cont::ArrayHandle<vtkm::Vec3f> dAsUniform;
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> AsUniform;
+
+    vtkm::cont::Timer timer2;
+    timer2.Start();
+    if (worklet.UseAsCell)
+    {
+      std::cout<<"********************* AS Cell"<<std::endl;
+      vtkm::Id nCells = uniform2DCells.GetNumberOfCells() * numPlanes * 2;
+      AsUniform.Allocate(nCells);
+      dAsUniform.Allocate(nCells);
+      ComputeAsCellWorklet computeAs;
+      computeAs.Num2DCells = uniform2DCells.GetNumberOfCells();
+
+      invoker(computeAs,
+              uniform2DCells, uniform2DCoords,
+              locator2L,
+              ds.GetCellSet(),
+              As_ff, dAs_ff_rzp,
+              AsUniform, dAsUniform);
+    }
+    else
+    {
+      std::cout<<"********************* AS Point"<<std::endl;
+      ComputeAsWorklet computeAs;
+      vtkm::Id nPts = uniform2DCoords.GetNumberOfValues() * numPlanes * 2;
+      AsUniform.Allocate(nPts);
+      dAsUniform.Allocate(nPts);
+      computeAs.Num2DPts = uniform2DCoords.GetNumberOfValues();
+
+      invoker(computeAs,
+              uniform2DCoords,
+              locator2L,
+              ds.GetCellSet(),
+              As_ff, dAs_ff_rzp,
+              AsUniform, dAsUniform);
+    }
+    timer2.Stop();
+    std::cout<<"... BGrid compute done."<<std::endl;
+    std::cout<<"Grid build timer= "<<timer2.GetElapsedTime()<<std::endl;
+
+    start = std::chrono::steady_clock::now();
+    invoker(worklet, seeds,
+            locator2L,
+            ds.GetCellSet(),
+            ds.GetCoordinateSystem(),
+            As_ff, dAs_ff_rzp, coeff_1D, coeff_2D,
+            AsUniform, dAsUniform,
+            tracesArr, outRZ, outTP, outID);
+
 #else
     std::cout<<"*************************************** Code NOT build with Worklet 2"<<std::endl;
 #endif
@@ -1108,7 +1280,7 @@ Poincare(const vtkm::cont::DataSet& ds,
     PoincareWorklet3 worklet(numPunc, 0.0f, h, (traces!=nullptr), quickTest);
     worklet.SetBGrid(origin, spacing, maxPt, dims, BGridCell);
     worklet.UseBOnly = useBOnly;
-    worklet.UseHighOrder = useHighOrder;
+    worklet.UseHighOrderB = useHighOrderB;
 
     if (traces != nullptr)
     {
@@ -1481,8 +1653,13 @@ ReadData_ORIG(std::map<std::string, std::vector<std::string>>& args)
   meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_t"), &numTri, adios2::Mode::Sync);
   std::vector<double> psiVals;
   meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("psi"), psiVals, adios2::Mode::Sync);
-  psi_min = psiVals[0];
-  psi_max = psiVals[psiVals.size()-1];
+  psi_min = psi_max = psiVals[0];
+  for (const auto& p : psiVals)
+  {
+    if (p < psi_min) psi_min = p;
+    if (p > psi_max) psi_max = p;
+  }
+  std::cout<<"********                  PSI m/M = "<<psi_min<<" "<<psi_max<<std::endl;
 
   //Try and do everything in cylindrical coords and worklets.
   auto ds = ReadMesh(meshStuff);
@@ -1516,8 +1693,8 @@ ReadData_ORIG(std::map<std::string, std::vector<std::string>>& args)
   }
 
   //ds.PrintSummary(std::cout);
-//  vtkm::io::VTKDataSetWriter writer("debug.vtk");
-//  writer.WriteDataSet(ds);
+  vtkm::io::VTKDataSetWriter writer("grid.vtk");
+  writer.WriteDataSet(ds);
 
   return ds;
 }
@@ -1571,8 +1748,13 @@ ReadData(std::map<std::string, std::vector<std::string>>& args)
   meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_t"), &numTri, adios2::Mode::Sync);
   std::vector<double> psiVals;
   meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("psi"), psiVals, adios2::Mode::Sync);
-  psi_min = psiVals[0];
-  psi_max = psiVals[psiVals.size()-1];
+  psi_min = psi_max = psiVals[0];
+  for (const auto& p : psiVals)
+  {
+    if (p < psi_min) psi_min = p;
+    if (p > psi_max) psi_max = p;
+  }
+  std::cout<<"********                  PSI m/M = "<<psi_min<<" "<<psi_max<<std::endl;
 
   auto ds = ReadMesh(meshStuff);
   ReadPsiInterp(equilStuff, initStuff, ds);
@@ -1591,16 +1773,14 @@ ReadData(std::map<std::string, std::vector<std::string>>& args)
     dataStuff->engine.EndStep();
   }
 
-  status = dataStuff->engine.BeginStep();
   ReadOther(dataStuff, ds, "As_phi_ff");
   ReadOther(dataStuff, ds, "dAs_phi_ff");
   ReadScalar(dataStuff, ds, "dpot");
-
+  ReadScalar(meshStuff, ds, "psi");
 
 
 /*
   ReadScalar(dataStuff, ds, "apars", "apars", true);
-  ReadScalar(meshStuff, ds, "psi");
   ReadScalar(meshStuff, ds, "theta");
 */
 
@@ -1629,9 +1809,10 @@ ReadData(std::map<std::string, std::vector<std::string>>& args)
   }
   */
 
-  //ds.PrintSummary(std::cout);
-  //vtkm::io::VTKDataSetWriter writer("debug.vtk");
-  //writer.WriteDataSet(ds);
+  ds.PrintSummary(std::cout);
+  vtkm::io::VTKDataSetWriter writer("grid.vtk");
+  writer.WriteDataSet(ds);
+
   return ds;
 }
 
@@ -1687,6 +1868,253 @@ mySchedParams(char const* name,
 }
 #endif
 
+
+template <typename Coeff_2DType>
+VTKM_EXEC
+void EvalBicub2(const vtkm::FloatDefault& x,
+                const vtkm::FloatDefault& y,
+                const vtkm::FloatDefault& xc,
+                const vtkm::FloatDefault& yc,
+                const vtkm::Id& offset,
+                const Coeff_2DType& Coeff_2D,
+                vtkm::FloatDefault &f00, vtkm::FloatDefault &f10, vtkm::FloatDefault &f01,
+                vtkm::FloatDefault &f11, vtkm::FloatDefault &f20, vtkm::FloatDefault &f02)
+{
+  vtkm::FloatDefault dx = x - xc;
+  vtkm::FloatDefault dy = y - yc;
+
+  //fortran code.
+
+  f00 = f01 = f10 = f11 = f20 = f02 = 0.0f;
+  vtkm::FloatDefault xv[4] = {1, dx, dx*dx, dx*dx*dx};
+  vtkm::FloatDefault yv[4] = {1, dy, dy*dy, dy*dy*dy};
+  vtkm::FloatDefault fx[4] = {0,0,0,0};
+  vtkm::FloatDefault dfx[4] = {0,0,0,0};
+  vtkm::FloatDefault dfy[4] = {0,0,0,0};
+  vtkm::FloatDefault dfx2[4] = {0,0,0,0};
+  vtkm::FloatDefault dfy2[4] = {0,0,0,0};
+
+
+  for (int j=0; j<4; j++)
+  {
+    for (int i=0; i<4; i++)
+      fx[j] = fx[j] + xv[i]*Coeff_2D.Get(offset + i*4 + j); //acoeff[i][j];
+    for (int i=1; i<4; i++)
+      dfx[j] = dfx[j] + vtkm::FloatDefault(i)*xv[i-1]*Coeff_2D.Get(offset + i*4 + j); //acoeff[i][j];
+    for (int i=2; i<4; i++)
+      dfx2[j] = dfx2[j] + vtkm::FloatDefault(i*(i-1))*xv[i-2]*Coeff_2D.Get(offset + i*4 + j); //acoeff[i][j];
+  }
+
+  for (int j = 0; j < 4; j++)
+  {
+    f00 = f00 + fx[j]*yv[j];
+    f10 = f10 + dfx[j]*yv[j];
+    f20 = f20 + dfx2[j]*yv[j];
+  }
+
+  for (int j = 1; j < 4; j++)
+  {
+    dfy[j] = vtkm::FloatDefault(j)*yv[j-1];
+    f01 = f01 + fx[j]*dfy[j];
+    f11 = f11 + dfx[j]*dfy[j];
+  }
+
+  for (int j = 2; j < 4; j++)
+  {
+    dfy2[j] = vtkm::FloatDefault(j*(j-1))*yv[j-2];
+    f02 = f02 + fx[j]*dfy2[j];
+  }
+}
+
+int GetIndex(const vtkm::FloatDefault& x,
+             const int& nx,
+             const vtkm::FloatDefault& xmin,
+             const vtkm::FloatDefault& dx_inv)
+{
+  int idx = std::max(1, std::min(nx  , 1 + int ((x-xmin)*dx_inv)) );
+  return idx-1;
+}
+
+
+class FindMaxR : public vtkm::worklet::WorkletMapField
+{
+public:
+  using ControlSignature = void(FieldIn Thetas,
+                                ExecObject Locator,
+                                FieldOut MaxR);
+  using ExecutionSignature = void(_1, _2, _3);
+  using InputDomain = _1;
+
+  FindMaxR(vtkm::FloatDefault rmin,
+           vtkm::FloatDefault rmax,
+           vtkm::FloatDefault eq_r,
+           vtkm::FloatDefault eq_z)
+    : RMin(rmin)
+    , RMax(rmax)
+    , EqR(eq_r)
+    , EqZ(eq_z)
+  {
+  }
+
+  template <typename LocatorType>
+  VTKM_EXEC void operator()(const vtkm::FloatDefault& theta,
+                            const LocatorType& locator,
+                            vtkm::FloatDefault& val) const
+  {
+    const vtkm::FloatDefault cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
+
+    vtkm::FloatDefault r0 = 0, r1 = this->RMax - this->EqR;
+    //std::cout<<"Theta= "<<theta<<std::endl;
+
+    vtkm::Vec3f pt(0,0,0), pcoords;
+    vtkm::Id cellId;
+    while (vtkm::Abs(r0-r1) > 1e-8)
+    {
+      vtkm::FloatDefault ri = (r0+r1) / 2.0;
+
+      pt[0] = this->EqR + ri*cost;
+      pt[1] = this->EqZ + ri*sint;
+      //std::cout<<"  ri= "<<ri<<" ("<<r0<<" "<<r1<<")"<<std::endl;
+      //std::cout<<"   pt= "<<pt<<std::endl;
+      if (locator.FindCell(pt, cellId, pcoords) == vtkm::ErrorCode::Success)
+      {
+        // ri is INSIDE, set range to (ri, r1)
+        r0 = ri;
+      }
+      else
+      {
+        // ri is OUTSIDE, set range to (r0, ri)
+        r1 = ri;
+      }
+    }
+
+    //Set the mid value.
+    val = (r0+r1)/2.0;
+  }
+
+  vtkm::FloatDefault RMin;
+  vtkm::FloatDefault RMax;
+  vtkm::FloatDefault EqR;
+  vtkm::FloatDefault EqZ;
+};
+
+template <typename CoeffType>
+vtkm::FloatDefault
+InterpolatePsi(const vtkm::Vec2f& ptRZ,
+               const CoeffType& coeff,
+               const vtkm::Id& ncoeff,
+               const vtkm::Id2& nrz,
+               const vtkm::Vec2f& rzmin,
+               const vtkm::Vec2f& drz)
+{
+  vtkm::FloatDefault psi = 0;
+
+  int r_i = GetIndex(ptRZ[0], nrz[0], rzmin[0], 1.0/drz[0]);
+  int z_i = GetIndex(ptRZ[1], nrz[1], rzmin[1], 1.0/drz[1]);
+  vtkm::FloatDefault Rc = rzmin[0] + (vtkm::FloatDefault)(r_i)*drz[0];
+  vtkm::FloatDefault Zc = rzmin[1] + (vtkm::FloatDefault)(z_i)*drz[1];
+  auto Rc_1 = Rc + drz[0];
+  auto Zc_1 = Zc + drz[1];
+  Rc = (Rc + Rc_1) * 0.5;
+  Zc = (Zc + Zc_1) * 0.5;
+
+  vtkm::Id offset = (r_i * ncoeff + z_i) * 16;
+
+  vtkm::FloatDefault dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
+  EvalBicub2(ptRZ[0], ptRZ[1], Rc, Zc, offset, coeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
+
+  return psi;
+}
+
+void
+GeneratePsiRangeSeeds(vtkm::FloatDefault psiNorm0,
+                      vtkm::FloatDefault psiNorm1,
+                      int numPts,
+                      int numTheta,
+                      const vtkm::cont::DataSet& ds,
+                      std::vector<vtkm::Vec3f>& seeds)
+{
+  vtkm::cont::Invoker invoker;
+  FindMaxR worklet(eq_min_r, eq_max_r, eq_axis_r, eq_axis_z);
+  std::vector<vtkm::FloatDefault> t;
+  vtkm::FloatDefault dTheta = vtkm::TwoPi() / static_cast<vtkm::FloatDefault>(numTheta);
+
+  for (int j = 0; j < numTheta; j++)
+    t.push_back(static_cast<vtkm::FloatDefault>(j) * dTheta);
+
+  auto thetas = vtkm::cont::make_ArrayHandle(t, vtkm::CopyFlag::On);
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> maxR;
+
+  vtkm::cont::CellLocatorTwoLevel locator;
+  locator.SetCellSet(ds.GetCellSet());
+  locator.SetCoordinates(ds.GetCoordinateSystem());
+  locator.Update();
+  invoker(worklet, thetas, locator, maxR);
+  std::cout<<"MaxR= ";
+  vtkm::cont::printSummary_ArrayHandle(maxR, std::cout, true);
+
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
+  ds.GetField("coeff_2D").GetData().AsArrayHandle(arr);
+  auto coeff = arr.ReadPortal();
+
+  auto thetaPortal = thetas.ReadPortal();
+  auto maxRPortal = maxR.ReadPortal();
+  vtkm::Id ncoeff = eq_mr-1;
+  vtkm::Id2 nrz(eq_mr, eq_mz);
+  vtkm::Vec2f rzmin(eq_min_r, eq_min_z);
+  vtkm::Vec2f drz((eq_max_r-eq_min_r)/static_cast<vtkm::FloatDefault>(eq_mr-1),
+                  (eq_max_z-eq_min_z)/static_cast<vtkm::FloatDefault>(eq_mz-1));
+
+  auto psiMin = psiNorm0 * eq_x_psi, psiMax = psiNorm1 * eq_x_psi;
+  auto dPsi = (psiMax-psiMin) / static_cast<vtkm::FloatDefault>(numPts-1);
+  auto psi = psiMin;
+
+  for (int i = 0; i < numPts; i++)
+  {
+    std::cout<<"Pt_"<<i<<" = psi= "<<psi<<" psiN= "<<(psi/eq_x_psi)<<std::endl;
+
+    for (vtkm::Id j = 0; j < thetaPortal.GetNumberOfValues(); j++)
+    {
+      vtkm::FloatDefault rad0 = 1e-8, rad1 = maxRPortal.Get(j);
+      auto theta = thetaPortal.Get(j);
+      auto cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
+
+      /*
+      vtkm::Vec2f p0(eq_axis_r + rad0*cost, eq_axis_z + rad0*sint);
+      vtkm::Vec2f p1(eq_axis_r + rad1*cost, eq_axis_z + rad1*sint);
+      auto psi_0 = InterpolatePsi(p0,  coeff, ncoeff, nrz, rzmin, drz);
+      auto psi_1 = InterpolatePsi(p1,  coeff, ncoeff, nrz, rzmin, drz);
+      std::cout<<"  theta= "<<theta<<" rad= "<<rad0<<" "<<rad1<<" psi= "<<psi_0<<" "<<psi_1<<std::endl;
+      std::cout<<"     p0= "<<p0<<" "<<p1<<std::endl;
+      std::cout<<"      c/s = "<<cost<<" "<<sint<<std::endl;
+      */
+
+      do
+      {
+        vtkm::FloatDefault rmid = (rad0+rad1) / 2.0;
+
+        vtkm::Vec2f pt(eq_axis_r + rmid*cost, eq_axis_z + rmid*sint);
+        auto psimid = InterpolatePsi(pt,  coeff, ncoeff, nrz, rzmin, drz);
+        //std::cout<<"     "<<rmid<<" ("<<rad0<<" "<<rad1<<") psimid= "<<psimid<<std::endl;
+
+        if (psimid < psi) // mid is inside, set range to (radmid, rad1)
+          rad0 = rmid;
+        else
+          rad1 = rmid;   // mid is outside, set range to (rad0, radmid)
+      }
+      while ((rad1-rad0) > 1e-8);
+
+      vtkm::FloatDefault r = (rad0+rad1)/2.0;
+      vtkm::Vec3f pt_rpz(eq_axis_r + r*cost, 0, eq_axis_z + r*sint);
+      seeds.push_back(pt_rpz);
+
+      //auto psi_ = InterpolatePsi({pt[0], pt[1]},  coeff, ncoeff, nrz, rzmin, drz);
+      //std::cout<<"   "<<pt<<"  psi= "<<psi_/eq_x_psi<<std::endl;
+    }
+    psi += dPsi;
+  }
+}
+
 int
 main(int argc, char** argv)
 {
@@ -1734,7 +2162,7 @@ main(int argc, char** argv)
   std::vector<vtkm::Vec3f> seeds;
   int whichWorklet = std::atoi(args["--worklet"][0].c_str());
   bool useTraces = false;
-  if (args.find("--traces") != args.end()) std::atoi(args["--traces"][0].c_str());
+  if (args.find("--traces") != args.end()) useTraces = std::atoi(args["--traces"][0].c_str());
   std::string outFileName = args["--output"][0];
   useTurb = true;
   if (args.find("--turbulence") != args.end())
@@ -1776,9 +2204,9 @@ main(int argc, char** argv)
   */
 
 
-  bool useBOnly = false, useHighOrder = false;
+  bool useBOnly = false, useHighOrderB = false;
   if (args.find("--useBOnly") != args.end()) useBOnly = true;
-  if (args.find("--useHighOrder") != args.end()) useHighOrder = true;
+  if (args.find("--useHighOrderB") != args.end()) useHighOrderB = true;
 
   if (args.find("--range") != args.end())
   {
@@ -1794,6 +2222,16 @@ main(int argc, char** argv)
     for (vtkm::Id id = 0; id < numSeeds; id++, r+=dr)
       seeds.push_back({r, .1, 0});
     //std::cout<<"SEEDS= "<<seeds<<std::endl;
+  }
+  else if (args.find("--psiRange") != args.end())
+  {
+    auto vals = args["--psiRange"];
+    vtkm::FloatDefault psi0 = std::atof(vals[0].c_str());
+    vtkm::FloatDefault psi1 = std::atof(vals[1].c_str());
+    int numPts = std::atof(vals[2].c_str());
+    int numTheta = std::atof(vals[3].c_str());
+
+    GeneratePsiRangeSeeds(psi0, psi1, numPts, numTheta, ds, seeds);
   }
   else if (args.find("--seed") != args.end())
   {
@@ -2179,7 +2617,8 @@ p11       2.329460849125147615, -0.073678279004152566
   std::vector<std::vector<vtkm::Vec3f>> traces(seeds.size());
   vtkm::cont::ArrayHandle<vtkm::Vec2f> outRZ, outTP;
   vtkm::cont::ArrayHandle<vtkm::Id> outID;
-  Poincare(ds, seeds, vField, stepSize, numPunc, whichWorklet, useBOnly, useHighOrder, outRZ, outTP, outID, quickTest, BGridSize, BGridCell, locator, locParam1, locParam2, (useTraces ? &traces : nullptr));
+  std::cout<<"******************* NumSeeds= "<<seeds.size()<<std::endl;
+  Poincare(ds, seeds, args, vField, stepSize, numPunc, whichWorklet, useBOnly, useHighOrderB, outRZ, outTP, outID, quickTest, BGridSize, BGridCell, locator, locParam1, locParam2, (useTraces ? &traces : nullptr));
 
   //std::cout<<"Convert to theta/psi"<<std::endl;
   //auto puncturesTP = ConvertPuncturesToThetaPsi(punctures, ds);
