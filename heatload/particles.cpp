@@ -173,3 +173,40 @@ void ptldb_print(t_ParticleDB &db)
         istep++;
     }
 }
+
+void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
+{
+    int rank;
+
+    MPI_Comm_rank(comm, &rank);
+
+    Particles ptls;
+
+    if (rank == 0)
+    {
+        for (auto const &inner : pmap)
+        {
+            for (auto const &ptl : inner.second)
+            {
+                ptls.push_back(ptl.second);
+            }
+        }
+    }
+
+    int nptls = ptls.size();
+    MPI_Bcast(&nptls, 1, MPI_INT, 0, comm);
+
+    ptls.resize(nptls);
+    int nbytes = ptls.size() * sizeof(struct Particle);
+
+    MPI_Bcast(ptls.data(), nbytes, MPI_CHAR, 0, comm);
+
+    // Reconstruct pmap by using the data from rank 0
+    if (rank > 0)
+    {
+        for (auto const &ptl : ptls)
+        {
+            add(pmap, ptl);
+        }
+    }
+}

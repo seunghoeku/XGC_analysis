@@ -25,19 +25,22 @@ void progress_step(long int total)
 }
 
 // get heatload of single species
-void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int show_progress = 0)
 {
 
     printf("\nHeatload calc particle size: %ld\n", div.size());
     // reset progress bar
     _progress_step_current = 0;
     std::time_t start = std::time(nullptr);
-#pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
+#pragma omp parallel for default(none) shared(sml, div, db, sp, show_progress, std::cerr)
     for (int i = 0; i < div.size(); i++)
     {
-#pragma omp critical
+        if (show_progress)
         {
-            progress_step(div.size());
+#pragma omp critical
+            {
+                progress_step(div.size());
+            }
         }
 
         struct Particle p = div[i]; // particle that hit divertor

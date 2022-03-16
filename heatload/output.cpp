@@ -11,8 +11,13 @@ adios2::Engine writer;
 
 extern Simulation sml;
 
-void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec)
+void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec, MPI_Comm comm)
 {
+    // (2022/03/16) TODO: parallel output
+    int comm_size, rank;
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Comm_rank(comm, &rank);
+
     static bool first = true;
 
     if (first)
@@ -26,7 +31,7 @@ void output(adios2::ADIOS *ad, HeatLoad &ion, HeatLoad &elec)
 
         output_io.DefineVariable<double>("io.side", {N_SIDE + 1}, {0}, {N_SIDE + 1});
 
-        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write, MPI_COMM_SELF);
+        writer = output_io.Open("xgc.heatload.bp", adios2::Mode::Write, comm);
 
         first = false;
     }

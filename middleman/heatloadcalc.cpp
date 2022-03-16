@@ -12,7 +12,7 @@
 #define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
-void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int show_progress = 0); // calculate heatload
 
 Heatload::Heatload(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
@@ -259,11 +259,6 @@ adios2::StepStatus Heatload::step()
                     // iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
                     add(iesc, iptl);
                 }
-                else
-                {
-                    // add to div
-                    idiv.push_back(iptl);
-                }
             }
 
             for (int k = 0; k < egid_total.size(); k++)
@@ -297,45 +292,97 @@ adios2::StepStatus Heatload::step()
                     // eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
                     add(eesc, eptl);
                 }
-                else
-                {
-                    // add to div
-                    ediv.push_back(eptl);
-                }
             }
-
-            // debug
-            std::cout << std::endl;
-            std::cout << ">>> Step: " << this->istep << std::endl;
-            std::cout << "Num. of escaped ions: " << iesc.size() << std::endl;
-            std::cout << "Num. of escaped elec: " << eesc.size() << std::endl;
-            std::cout << "Num. of divertor ions: " << idiv.size() << std::endl;
-            std::cout << "Num. of divertor elec: " << ediv.size() << std::endl;
-
-            // // print first 10 esc particles
-            // int count = 0;
-            // t_ParticlesList::iterator it;
-            // for (it = iesc.begin(); it != iesc.end(); it++)
-            // {
-            //     printf("iesc gid, rzphi, flag: %lld %f %f %f %d\n", it->second.gid, it->second.r, it->second.z,
-            //            it->second.phi, it->second.flag);
-            //     count++;
-            //     if (count > 10)
-            //         break;
-            // }
-
-            // separate divertor particles and escaped particles
-            this->iesc_db.push_back(iesc);
-            this->eesc_db.push_back(eesc);
-
-            // Calculate heatload from divertor particles
-            HeatLoad ion(1);
-            HeatLoad elec(0);
-
-            heatload_calc(idiv, ion, this->iesc_db); // need to send DB
-            heatload_calc(ediv, elec, this->eesc_db);
-            output(ad, ion, elec);
         }
+
+        // Everone
+        // populate idiv with local data
+        for (int i = 0; i < igid.size(); i++)
+        {
+            struct Particle iptl;
+            iptl.gid = igid[i];
+            iptl.flag = iflag[i];
+            iptl.esc_step = istep[i];
+            iptl.r = GET(iphase, i, 0);
+            iptl.z = GET(iphase, i, 1);
+            iptl.phi = GET(iphase, i, 2);
+            iptl.rho = GET(iphase, i, 3);
+            iptl.w1 = GET(iphase, i, 4);
+            iptl.w2 = GET(iphase, i, 5);
+            iptl.mu = GET(iphase, i, 6);
+            iptl.w0 = GET(iphase, i, 7);
+            iptl.f0 = GET(iphase, i, 8);
+            iptl.psi = GET(iphase, i, 9);
+            iptl.B = GET(iphase, i, 10);
+            iptl.dw = idw[i];
+
+            int flag1; // tmp flag
+            flag1 = iflag[i];
+
+            Flags fl(flag1); // decode flags
+
+            if (!fl.escaped)
+            {
+                // add to div
+                idiv.push_back(iptl);
+            }
+        }
+
+        // populate ediv with local data
+        for (int i = 0; i < egid.size(); i++)
+        {
+            struct Particle eptl;
+            eptl.gid = egid[i];
+            eptl.flag = eflag[i];
+            eptl.esc_step = estep[i];
+            eptl.r = GET(ephase, i, 0);
+            eptl.z = GET(ephase, i, 1);
+            eptl.phi = GET(ephase, i, 2);
+            eptl.rho = GET(ephase, i, 3);
+            eptl.w1 = GET(ephase, i, 4);
+            eptl.w2 = GET(ephase, i, 5);
+            eptl.mu = GET(ephase, i, 6);
+            eptl.w0 = GET(ephase, i, 7);
+            eptl.f0 = GET(ephase, i, 8);
+            eptl.psi = GET(ephase, i, 9);
+            eptl.B = GET(ephase, i, 10);
+            eptl.dw = edw[i];
+
+            int flag1; // tmp flag
+            flag1 = eflag[i];
+
+            Flags fl(flag1); // decode flags
+
+            // save to div or esc
+            if (!fl.escaped)
+            {
+                // add to div
+                ediv.push_back(eptl);
+            }
+        }
+
+        // Sync iesc and iesc with rank 0
+        ptlmap_sync(iesc, this->comm);
+        ptlmap_sync(eesc, this->comm);
+
+        // debug
+        LOG << ">>> Step: " << this->istep;
+        LOG << "Num. of escaped ions: " << iesc.size();
+        LOG << "Num. of escaped elec: " << eesc.size();
+        LOG << "Num. of divertor ions: " << idiv.size();
+        LOG << "Num. of divertor elec: " << ediv.size();
+
+        // separate divertor particles and escaped particles
+        this->iesc_db.push_back(iesc);
+        this->eesc_db.push_back(eesc);
+
+        // Calculate heatload from divertor particles
+        HeatLoad ion(1);
+        HeatLoad elec(0);
+
+        heatload_calc(idiv, ion, this->iesc_db); // need to send DB
+        heatload_calc(ediv, elec, this->eesc_db);
+        output(ad, ion, elec, this->comm);
 
         this->reader.EndStep();
         this->istep++;
