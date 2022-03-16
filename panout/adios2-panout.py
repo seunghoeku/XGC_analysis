@@ -29,6 +29,11 @@ def adios2_get_shape(f, varname):
     return (nstep, lshape)
 
 
+def define_variables(io, varinfo_list):
+    for vname, shape, start, count, val in varinfo_list:
+        io.DefineVariable(vname, val, shape, start, count, ad2.ConstantDims)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("infile", help="infile")
@@ -65,6 +70,15 @@ if __name__ == "__main__":
 
     assert size == np.prod(decomposition)
 
+    adios = ad2.ADIOS("adios2cfg.xml", ad2.DebugON)
+
+    writer_list = list()
+    for i in range(args.npanout):
+        io = adios.DeclareIO("field3D.%d" % i)
+        fname = "%s.%d.bp" % (args.outfile, i)
+        writer = io.Open(fname, ad2.Mode.Write, comm)
+        writer_list.append((io, writer))
+
     with ad2.open(
         args.infile,
         "r",
@@ -75,17 +89,17 @@ if __name__ == "__main__":
         for fstep in fh:
             istep = fstep.current_step()
             var_list = list()
-            vars = list()
+            varinfo_list = list()
             if args.var is None:
                 var_list.extend(fstep.available_variables())
             else:
                 var_list.extend(args.var)
 
-            for var in var_list:
-                nstep, nsize = adios2_get_shape(fstep, var)
+            for vname in var_list:
+                nstep, nsize = adios2_get_shape(fstep, vname)
                 ndim = len(nsize)
                 start, count = (), ()
-                # print (var, nstep, ndim, nsize)
+                # print (vname, nstep, ndim, nsize)
 
                 if ndim > 0:
                     x = list()
@@ -100,15 +114,24 @@ if __name__ == "__main__":
                     z = list(itertools.product(*x))[rank]
                     start, count = list(zip(*z))
 
-                logging.info((istep, var, nsize, start, count))
-                val = fstep.read(var, start=start, count=count)
-                vars.append((var, nsize, start, count, val))
+                logging.info((istep, vname, nsize, start, count))
+                val = fstep.read(vname, start=start, count=count)
+                varinfo_list.append((vname, nsize, start, count, val))
 
-            fname = "%s.%d.bp" % (args.outfile, istep % args.npanout)
-            logging.info("Writing: %s" % fname)
-            mode = "w" if istep < args.npanout else "a"
-            with ad2.open(
-                fname, mode=mode, comm=comm, engine_type=args.outengine
-            ) as fw:
-                for var, shape, start, count, val in vars:
-                    fw.write(var, val, shape, start, count)
+            ## Output
+            io, writer = writer_list[istep % args.npanout]
+
+            ## Define variables at a first time
+            if (istep // args.npanout) == 0:
+                define_variables(io, varinfo_list)
+
+            ## Write a step
+            writer.BeginStep()
+            for vname, shape, start, count, val in varinfo_list:
+                var = io.InquireVariable(vname)
+                writer.Put(var, val)
+            writer.EndStep()
+
+    ## Output close
+    for io, writer in writer_list:
+        writer.Close()
