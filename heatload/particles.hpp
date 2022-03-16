@@ -10,7 +10,7 @@
 
 #include "mpi.h"
 
-#define MMOD 1'000'000
+#define MMOD 1'000'000'000
 // particle data strcuture
 // float is used to save memory. Check any underflow happens??
 struct Particle
