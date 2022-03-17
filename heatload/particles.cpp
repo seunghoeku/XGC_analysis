@@ -27,12 +27,13 @@
 // Size of bins for mpas in t_ParticleDB and t_ParticlesList
 // This can be a performance parameter
 // Should set before building any
-uint64_t MMOD = 1'000'000'000'000;
+#define MMOD 1'000'000'000
+// uint64_t MMOD = 10'000'000'000'000;
 
-void set_nbin(uint64_t nbin)
-{
-    MMOD = nbin;
-}
+// void set_nbin(uint64_t nbin)
+// {
+//     MMOD = nbin;
+// }
 
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {

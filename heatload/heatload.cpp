@@ -15,13 +15,10 @@ MPI_Comm heatload_comm;
 int heatload_comm_size;
 int heatload_comm_rank;
 
-void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, uint64_t nbin)
+void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
 {
     // init simulation parameters
     init(ad, xgcdir);
-
-    // init nbin
-    set_nbin(nbin);
 
     // init adios
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.escaped_ptls.bp");

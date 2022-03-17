@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
     // run actual routine
-    heatload_init(ad, comm, xgcdir, nbin);
+    heatload_init(ad, comm, xgcdir);
     int istep = 1;
     while (1)
     {
