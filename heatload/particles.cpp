@@ -24,6 +24,16 @@
 //     return ptl;
 // }
 
+// Size of bins for mpas in t_ParticleDB and t_ParticlesList
+// This can be a performance parameter
+// Should set before building any
+uint64_t MMOD = 1'000'000'000'000;
+
+void set_nbin(uint64_t nbin)
+{
+    MMOD = nbin;
+}
+
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
     assert(timestep < db.size());
@@ -36,7 +46,7 @@ Particle search(t_ParticleDB &db, int timestep, long long gid)
 
     if (it != pmap.end())
     {
-        auto inner = it->second;
+        auto &inner = it->second;
         auto init = inner.find(gid);
         if (init != inner.end())
         {
@@ -53,8 +63,8 @@ void add(t_ParticlesList &pmap, Particle ptl)
     auto it = pmap.find(ptl.gid / MMOD);
     if (it != pmap.end())
     {
-        auto inner = it->second;
-        inner.insert(std::pair<long long, Particle>(ptl.gid, ptl));
+        auto &inner = it->second;
+        inner.insert({ptl.gid, ptl});
     }
     else
     {
@@ -171,6 +181,29 @@ void ptldb_print(t_ParticleDB &db, std::string str)
         }
         LOG << str << " info: step " << istep << " : " << nptls;
         istep++;
+    }
+    LOG << str << " nbin: " << MMOD;
+}
+
+int ptlmap_count(t_ParticlesList &pmap)
+{
+    int count = 0;
+    for (auto const &inner : pmap)
+    {
+        count += inner.second.size();
+    }
+
+    return count;
+}
+
+void ptlmap_print(t_ParticlesList &pmap, std::string str)
+{
+    for (auto const &inner : pmap)
+    {
+        for (auto const &ptl : inner.second)
+        {
+            LOG << str << " : " << inner.first << " " << ptl.first << " " << ptl.second.gid;
+        }
     }
 }
 

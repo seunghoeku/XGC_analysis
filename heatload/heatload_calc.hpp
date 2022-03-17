@@ -84,10 +84,34 @@ class HeatLoad
 
 inline HeatLoad::HeatLoad()
 {
+    for (int is = 0; is < N_SIDE; is++)
+    {
+        for (int ic = 0; ic < N_COND; ic++)
+        {
+            for (int i = 0; i < N_PSI; i++)
+            {
+                side[is].en[ic][i] = 0.0;
+                side[is].ptl[ic][i] = 0.0;
+            }
+        }
+    }
+
 } // empty constructor
 
 inline HeatLoad::HeatLoad(int isp_in)
 {
     isp = isp_in;
+
+    for (int is = 0; is < N_SIDE; is++)
+    {
+        for (int ic = 0; ic < N_COND; ic++)
+        {
+            for (int i = 0; i < N_PSI; i++)
+            {
+                side[is].en[ic][i] = 0.0;
+                side[is].ptl[ic][i] = 0.0;
+            }
+        }
+    }
 }
 #endif

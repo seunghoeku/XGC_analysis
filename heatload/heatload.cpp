@@ -15,10 +15,13 @@ MPI_Comm heatload_comm;
 int heatload_comm_size;
 int heatload_comm_rank;
 
-void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
+void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, uint64_t nbin)
 {
     // init simulation parameters
     init(ad, xgcdir);
+
+    // init nbin
+    set_nbin(nbin);
 
     // init adios
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.escaped_ptls.bp");
@@ -39,6 +42,28 @@ void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
 
     // init adios
     // load_init(ad, "xgc.escaped_ptls.bp");
+}
+
+void test()
+{
+    LOG << "heatload_step";
+    t_ParticlesList pmap;
+    for (int i = 0; i < 10; i++)
+    {
+        Particle ptl;
+        ptl.gid = i * 10;
+        add(pmap, ptl);
+    }
+    ptlmap_print(pmap, "pmap");
+
+    t_ParticleDB db;
+    db.push_back(pmap);
+
+    for (int i = 0; i < 50; i++)
+    {
+        Particle p = search(db, 0, i);
+        LOG << i << " " << p.gid;
+    }
 }
 
 int heatload_step(adios2::ADIOS *ad, int istep)
@@ -71,8 +96,8 @@ int heatload_step(adios2::ADIOS *ad, int istep)
     ptlmap_sync(eesc, heatload_comm);
 
     LOG << ">>> Step: " << istep;
-    LOG << "Num. of escaped ions: " << iesc.size();
-    LOG << "Num. of escaped elec: " << eesc.size();
+    LOG << "Num. of escaped ions: " << ptlmap_count(iesc);
+    LOG << "Num. of escaped elec: " << ptlmap_count(eesc);
     LOG << "Num. of divertor ions: " << idiv.size();
     LOG << "Num. of divertor elec: " << ediv.size();
 
@@ -80,7 +105,7 @@ int heatload_step(adios2::ADIOS *ad, int istep)
     iesc_db.push_back(iesc);
     eesc_db.push_back(eesc);
     ptldb_print(iesc_db, "iesc_db");
-    ptldb_print(iesc_db, "eesc_db");
+    ptldb_print(eesc_db, "eesc_db");
 
     // store escaped particles to DB
 

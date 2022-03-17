@@ -53,10 +53,12 @@ int main(int argc, char *argv[])
 
     std::string xgcdir = ".";
     int maxstep = 0;
+    uint64_t nbin = 1'000'000'000'000;
 
     po::options_description desc("Allowed options");
     desc.add_options()("help,h", "produce help message")("xgcdir,w", po::value(&xgcdir), "XGC directory")(
-        "maxstep,s", po::value<int>(&maxstep)->default_value(0), "max steps");
+        "maxstep,s", po::value<int>(&maxstep)->default_value(0), "max steps")("nbin,m", po::value<uint64_t>(&nbin),
+                                                                              "nbin");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -77,7 +79,7 @@ int main(int argc, char *argv[])
     adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
     // run actual routine
-    heatload_init(ad, comm, xgcdir);
+    heatload_init(ad, comm, xgcdir, nbin);
     int istep = 1;
     while (1)
     {

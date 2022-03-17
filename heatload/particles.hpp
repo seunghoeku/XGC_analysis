@@ -10,7 +10,9 @@
 
 #include "mpi.h"
 
-#define MMOD 1'000'000'000
+// #define MMOD 1'000'000'000'000
+// #define MMOD 1'000'000'000
+// #define MMOD 1'000'000
 // particle data strcuture
 // float is used to save memory. Check any underflow happens??
 struct Particle
@@ -39,12 +41,15 @@ typedef std::unordered_map<long long, Particle> t_ParticlesListInner;
 typedef std::unordered_map<long long, t_ParticlesListInner> t_ParticlesList;
 typedef std::vector<t_ParticlesList> t_ParticleDB;
 
+void set_nbin(uint64_t nbin);
 Particle search(t_ParticleDB &db, int timestep, long long int gid);
 void add(t_ParticlesList &pmap, Particle ptl);
 void ptldb_save(t_ParticleDB &db, std::string filename);
 void ptldb_load(t_ParticleDB &db, std::string filename);
 void ptldb_print(t_ParticleDB &db, std::string str);
+int ptlmap_count(t_ParticlesList &pmap);
 void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm);
+void ptlmap_print(t_ParticlesList &pmap, std::string str);
 
 //#include "particles.tpp"
 #endif
