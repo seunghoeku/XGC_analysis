@@ -187,8 +187,8 @@ set(extra_header_template_sources
   )
 
 set(extra_sources_device
-  ${ClipWithFieldInstantiations}
-  ${ClipWithImplicitFunctionInstantiations}
+#  ${ClipWithFieldInstantiations}
+#  ${ClipWithImplicitFunctionInstantiations}
   ExternalFaces.cxx
   VectorMagnitude.cxx
   particleadvection/Messenger.cxx
