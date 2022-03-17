@@ -27,12 +27,14 @@ class Conditions
 
 inline Conditions::Conditions()
 {
-    // empty constructor
+    for (int ic = 0; ic < N_COND; ic++)
+    {
+        b[ic] = false;
+    }
 }
 
-inline Conditions::Conditions(struct Particle ptl)
+inline Conditions::Conditions(struct Particle ptl) : Conditions()
 {
-
     // get conditions
     Flags fl(ptl.flag);
 
@@ -70,7 +72,21 @@ class HeatLoad1
   public:
     double en[N_COND][N_PSI];
     double ptl[N_COND][N_PSI];
+
+    HeatLoad1();
 };
+
+inline HeatLoad1::HeatLoad1()
+{
+    for (int ic = 0; ic < N_COND; ic++)
+    {
+        for (int i = 0; i < N_PSI; i++)
+        {
+            en[ic][i] = 0.0;
+            ptl[ic][i] = 0.0;
+        }
+    }
+}
 
 class HeatLoad
 {
@@ -84,34 +100,11 @@ class HeatLoad
 
 inline HeatLoad::HeatLoad()
 {
-    for (int is = 0; is < N_SIDE; is++)
-    {
-        for (int ic = 0; ic < N_COND; ic++)
-        {
-            for (int i = 0; i < N_PSI; i++)
-            {
-                side[is].en[ic][i] = 0.0;
-                side[is].ptl[ic][i] = 0.0;
-            }
-        }
-    }
+    // empty constructor
+}
 
-} // empty constructor
-
-inline HeatLoad::HeatLoad(int isp_in)
+inline HeatLoad::HeatLoad(int isp_in) : HeatLoad()
 {
     isp = isp_in;
-
-    for (int is = 0; is < N_SIDE; is++)
-    {
-        for (int ic = 0; ic < N_COND; ic++)
-        {
-            for (int i = 0; i < N_PSI; i++)
-            {
-                side[is].en[ic][i] = 0.0;
-                side[is].ptl[ic][i] = 0.0;
-            }
-        }
-    }
 }
 #endif

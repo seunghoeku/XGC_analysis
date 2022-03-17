@@ -28,17 +28,15 @@
 // This can be a performance parameter
 // Should set before building any
 #define MMOD 1'000'000'000
-// uint64_t MMOD = 10'000'000'000'000;
-
-// void set_nbin(uint64_t nbin)
-// {
-//     MMOD = nbin;
-// }
 
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
     assert(timestep < db.size());
 
+    return db[timestep][gid / MMOD][gid];
+
+    /*
+    // (2022/03/17) jyc: "find" is slow
     Particle ptl;
     ptl.gid = -1;
 
@@ -56,6 +54,7 @@ Particle search(t_ParticleDB &db, int timestep, long long gid)
     }
 
     return ptl;
+    */
 }
 
 void add(t_ParticlesList &pmap, Particle ptl)

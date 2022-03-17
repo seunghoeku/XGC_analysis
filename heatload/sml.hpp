@@ -24,8 +24,31 @@ class Simulation
     Simulation();
 };
 
-inline Simulation::Simulation(){
+inline Simulation::Simulation()
+{
+    rmin[0] = 0;
+    rmin[1] = 0;
 
+    rmax[0] = 0;
+    rmax[1] = 0;
+
+    zmin[0] = 0;
+    zmin[1] = 0;
+
+    zmax[0] = 0;
+    zmax[1] = 0;
+
+    pmin[0] = 0;
+    pmin[1] = 0;
+
+    pmax[0] = 0;
+    pmax[1] = 0;
+
+    dpsi[0] = 0;
+    dpsi[1] = 0;
+
+    c2_2m[0] = 0;
+    c2_2m[1] = 0;
 };
 
 #endif
