@@ -346,6 +346,22 @@ vtkm::ErrorCode FindCell2(const FloatVec3& point,
   VTKM_DEPRECATED(1.6, "Locators are no longer pointers. Use . operator.")
   VTKM_EXEC const CellLocatorTwoLevel* operator->() const { return this; }
 
+  VTKM_EXEC ReadPortal<DimVec3> GetLeafDimensions() const {return this->LeafDimensions;}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetLeafStartIndex() const {return this->LeafStartIndex;}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellStartIndex() const {return this->CellStartIndex;}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellCount() const {return this->CellCount;}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellIds() const {return this->CellIds;}
+  VTKM_EXEC CoordsPortalType     GetCoords() const {return this->Coords;}
+  VTKM_EXEC vtkm::exec::Grid GetTopLevel() const
+  {
+    vtkm::exec::Grid g;
+    g.Dimensions = this->TopLevel.Dimensions;
+    g.Padding = this->TopLevel.Padding;
+    g.Origin = this->TopLevel.Origin;
+    g.BinSize = this->TopLevel.BinSize;
+    return g;
+  }
+
 private:
   vtkm::internal::cl_uniform_bins::Grid TopLevel;
 

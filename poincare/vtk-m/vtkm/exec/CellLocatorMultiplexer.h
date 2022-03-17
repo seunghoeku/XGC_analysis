@@ -20,8 +20,24 @@ namespace vtkm
 namespace exec
 {
 
+using DimensionType = vtkm::Int16;
+using DimVec3 = vtkm::Vec<DimensionType, 3>;
+using FloatVec3 = vtkm::Vec3f;
+struct Grid
+{
+  DimVec3 Dimensions;
+  // Bug in CUDA 9.2 where having this gap for alignment was for some reason setting garbage
+  // in a union with other cell locators (or perhaps not properly copying data). This appears
+  // to be fixed by CUDA 10.2.
+  DimensionType Padding;
+  FloatVec3 Origin;
+  FloatVec3 BinSize;
+};
+
 namespace detail
 {
+template <typename T>
+using ReadPortal = typename vtkm::cont::ArrayHandle<T>::ReadPortalType;
 
 struct FindCellFunctor
 {
@@ -48,11 +64,85 @@ struct FindCellFunctor2
   }
 };
 
+struct GetLeafDimensions
+{
+  template <typename Locator>
+  VTKM_EXEC ReadPortal<DimVec3> operator()(Locator&& locator) const
+  {
+    return locator.GetLeafDimensions();
+  }
+};
+
+struct GetLeafStartIndex
+{
+  template <typename Locator>
+  VTKM_EXEC ReadPortal<vtkm::Id> operator()(Locator&& locator) const
+  {
+    return locator.GetLeafStartIndex();
+  }
+};
+
+struct GetCellStartIndex
+{
+  template <typename Locator>
+  VTKM_EXEC ReadPortal<vtkm::Id> operator()(Locator&& locator) const
+  {
+    return locator.GetCellStartIndex();
+  }
+};
+
+struct GetCellCount
+{
+  template <typename Locator>
+  VTKM_EXEC ReadPortal<vtkm::Id> operator()(Locator&& locator) const
+  {
+    return locator.GetCellCount();
+  }
+};
+
+struct GetCellIds
+{
+  template <typename Locator>
+  VTKM_EXEC ReadPortal<vtkm::Id> operator()(Locator&& locator) const
+  {
+    return locator.GetCellIds();
+  }
+};
+
+struct GetTopLevel
+{
+  template <typename Locator>
+  VTKM_EXEC vtkm::exec::Grid
+  operator()(Locator&& locator) const
+  {
+    return locator.GetTopLevel();
+  }
+};
+/*
+template <typename CoordsPortalType>
+struct GetCoords
+{
+  template <typename Locator>
+  VTKM_EXEC CoordsPortalType
+  operator()(Locator&& locator) const
+  {
+    return locator.GetCoords();
+  }
+};
+*/
+
 } // namespace detail
 
 template <typename... LocatorTypes>
 class VTKM_ALWAYS_EXPORT CellLocatorMultiplexer
 {
+using DimensionType = vtkm::Int16;
+using DimVec3 = vtkm::Vec<DimensionType, 3>;
+using FloatVec3 = vtkm::Vec3f;
+
+template <typename T>
+using ReadPortal = typename vtkm::cont::ArrayHandle<T>::ReadPortalType;
+
 public:
   vtkm::exec::internal::Variant<LocatorTypes...> Locators;
 
@@ -89,6 +179,16 @@ public:
   {
     return this->Locators.CastAndCall(detail::FindCellFunctor2{}, point, cellId, parametric, prevCell);
   }
+
+  VTKM_EXEC ReadPortal<DimVec3> GetLeafDimensions() const { return this->Locators.CastAndCall(detail::GetLeafDimensions{}); }
+  VTKM_EXEC ReadPortal<vtkm::Id> GetLeafStartIndex() const { return this->Locators.CastAndCall(detail::GetLeafStartIndex{}); }
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellStartIndex() const { return this->Locators.CastAndCall(detail::GetCellStartIndex{}); }
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellCount() const { return this->Locators.CastAndCall(detail::GetCellCount{}); }
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellIds() const { return this->Locators.CastAndCall(detail::GetCellIds{}); }
+  VTKM_EXEC vtkm::exec::Grid GetTopLevel() const {return this->Locators.CastAndCall(detail::GetTopLevel{});}
+
+//  template <typename CoordsPortalType>
+//  VTKM_EXEC CoordsPortalType GetCoords() const {return this->Locators.CastAndCall(detail::GetCoords{});
 
   VTKM_DEPRECATED(1.6, "Locators are no longer pointers. Use . operator.")
   VTKM_EXEC CellLocatorMultiplexer* operator->() { return this; }

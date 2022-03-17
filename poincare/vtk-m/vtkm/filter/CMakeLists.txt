@@ -214,7 +214,7 @@ set(contour_header_template_sources
 set(contour_sources_device
   Contour.cxx
   ${ContourInstantiations}
-  Slice.cxx
+##  Slice.cxx
   )
 
 set(gradient_headers

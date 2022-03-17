@@ -29,7 +29,7 @@ set(Poincare_srcs
 
 add_executable(Poincare ${Poincare_srcs})
 
-target_link_libraries(Poincare PRIVATE vtkm_filter vtkm_io adios2::adios2)
+target_link_libraries(Poincare PRIVATE vtkm_cont vtkm_worklet vtkm_io adios2::adios2)
 
 vtkm_add_target_information(Poincare
                             DROP_UNUSED_SYMBOLS MODIFY_CUDA_FLAGS
