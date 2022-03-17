@@ -25,19 +25,22 @@ void progress_step(long int total)
 }
 
 // get heatload of single species
-void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int show_progress = 0)
 {
 
     printf("\nHeatload calc particle size: %ld\n", div.size());
     // reset progress bar
     _progress_step_current = 0;
     std::time_t start = std::time(nullptr);
-#pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
+#pragma omp parallel for default(none) shared(sml, div, db, sp, show_progress, std::cerr)
     for (int i = 0; i < div.size(); i++)
     {
-#pragma omp critical
+        if (show_progress)
         {
-            progress_step(div.size());
+#pragma omp critical
+            {
+                progress_step(div.size());
+            }
         }
 
         struct Particle p = div[i]; // particle that hit divertor
@@ -45,35 +48,38 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
         double wp = p.dw * p.w0;
 
         struct Particle p_esc = search(db, p.esc_step, p.gid); // particle info when it escaped.
-        Conditions cond(p_esc);                                // get conditions from particle info when escaped.
-
-        // check inner or outer
-        for (int side = 0; side < 2; side++)
+        if (p_esc.gid > 0)
         {
-            // check bounding box
-            if (sml.rmin[side] < p.r && p.r < sml.rmax[side] && sml.zmin[side] < p.z && p.z < sml.zmax[side])
+            Conditions cond(p_esc); // get conditions from particle info when escaped.
+
+            // check inner or outer
+            for (int side = 0; side < 2; side++)
             {
-
-                double pn = (p.psi - sml.pmin[side]) / sml.dpsi[side];
-                int ip = (int)(pn);
-                if (ip >= 0 && ip < sml.npsi - 1)
+                // check bounding box
+                if (sml.rmin[side] < p.r && p.r < sml.rmax[side] && sml.zmin[side] < p.z && p.z < sml.zmax[side])
                 {
-                    double ws = 1.0 - pn + (double)(ip);
 
-                    for (int icond = 0; icond < N_COND; icond++)
+                    double pn = (p.psi - sml.pmin[side]) / sml.dpsi[side];
+                    int ip = (int)(pn);
+                    if (ip >= 0 && ip < sml.npsi - 1)
                     {
-                        if (cond.b[icond])
-                        {
-#pragma omp critical(spupdate)
-                            {
-#ifdef USE_OMP
-                                // printf("%d: thread rank %d\n", i, omp_get_thread_num());
-#endif
-                                sp.side[side].ptl[icond][ip] = wp * ws;
-                                sp.side[side].ptl[icond][ip + 1] = wp * ws;
+                        double ws = 1.0 - pn + (double)(ip);
 
-                                sp.side[side].en[icond][ip] = en * wp * ws;
-                                sp.side[side].en[icond][ip + 1] = en * wp * ws;
+                        for (int icond = 0; icond < N_COND; icond++)
+                        {
+                            if (cond.b[icond])
+                            {
+#pragma omp critical(spupdate)
+                                {
+#ifdef USE_OMP
+                                    printf("%d: thread rank %d\n", i, omp_get_thread_num());
+#endif
+                                    sp.side[side].ptl[icond][ip] = wp * ws;
+                                    sp.side[side].ptl[icond][ip + 1] = wp * ws;
+
+                                    sp.side[side].en[icond][ip] = en * wp * ws;
+                                    sp.side[side].en[icond][ip + 1] = en * wp * ws;
+                                }
                             }
                         }
                     }

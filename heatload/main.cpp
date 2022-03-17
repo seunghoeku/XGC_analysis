@@ -53,10 +53,19 @@ int main(int argc, char *argv[])
 
     std::string xgcdir = ".";
     int maxstep = 0;
+    bool freshstart = false;
+    bool ion_only = false;
 
     po::options_description desc("Allowed options");
-    desc.add_options()("help,h", "produce help message")("xgcdir,w", po::value(&xgcdir), "XGC directory")(
-        "maxstep,s", po::value<int>(&maxstep)->default_value(0), "max steps");
+    desc.add_options()
+        // clang-format off
+        ("help,h", "produce help message")
+        ("xgcdir,w", po::value(&xgcdir), "XGC directory")
+        ("maxstep,s", po::value<int>(&maxstep)->default_value(0), "max steps")
+        ("freshstart,f", po::bool_switch(&freshstart), "fresh start (no restart)")
+        ("ion_only,i", po::bool_switch(&ion_only), "Ion only")
+        // clang-format on
+        ;
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -77,11 +86,11 @@ int main(int argc, char *argv[])
     adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
     // run actual routine
-    heatload_init(ad, comm, xgcdir);
+    heatload_init(ad, comm, xgcdir, !freshstart);
     int istep = 1;
     while (1)
     {
-        int ret = heatload_step(ad, istep);
+        int ret = heatload_step(ad, istep, ion_only);
 
         if (ret == 0)
             // everything is ok

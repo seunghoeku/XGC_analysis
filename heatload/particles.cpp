@@ -24,10 +24,19 @@
 //     return ptl;
 // }
 
+// Size of bins for mpas in t_ParticleDB and t_ParticlesList
+// This can be a performance parameter
+// Should set before building any
+#define MMOD 1'000'000'000
+
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
     assert(timestep < db.size());
 
+    return db[timestep][gid / MMOD][gid];
+
+    /*
+    // (2022/03/17) jyc: "find" is slow
     Particle ptl;
     ptl.gid = -1;
 
@@ -36,7 +45,7 @@ Particle search(t_ParticleDB &db, int timestep, long long gid)
 
     if (it != pmap.end())
     {
-        auto inner = it->second;
+        auto &inner = it->second;
         auto init = inner.find(gid);
         if (init != inner.end())
         {
@@ -45,6 +54,7 @@ Particle search(t_ParticleDB &db, int timestep, long long gid)
     }
 
     return ptl;
+    */
 }
 
 void add(t_ParticlesList &pmap, Particle ptl)
@@ -53,8 +63,8 @@ void add(t_ParticlesList &pmap, Particle ptl)
     auto it = pmap.find(ptl.gid / MMOD);
     if (it != pmap.end())
     {
-        auto inner = it->second;
-        inner.insert(std::pair<long long, Particle>(ptl.gid, ptl));
+        auto &inner = it->second;
+        inner.insert({ptl.gid, ptl});
     }
     else
     {
@@ -159,7 +169,7 @@ void ptldb_load(t_ParticleDB &db, std::string filename)
     }
 }
 
-void ptldb_print(t_ParticleDB &db)
+void ptldb_print(t_ParticleDB &db, std::string str)
 {
     int istep = 0;
     for (auto const &plist : db)
@@ -169,7 +179,66 @@ void ptldb_print(t_ParticleDB &db)
         {
             nptls += inner.second.size();
         }
-        LOG << "DB info: step " << istep << " : " << nptls;
+        LOG << str << " info: step " << istep << " : " << nptls;
         istep++;
+    }
+}
+
+int ptlmap_count(t_ParticlesList &pmap)
+{
+    int count = 0;
+    for (auto const &inner : pmap)
+    {
+        count += inner.second.size();
+    }
+
+    return count;
+}
+
+void ptlmap_print(t_ParticlesList &pmap, std::string str)
+{
+    for (auto const &inner : pmap)
+    {
+        for (auto const &ptl : inner.second)
+        {
+            LOG << str << " : " << inner.first << " " << ptl.first << " " << ptl.second.gid;
+        }
+    }
+}
+
+void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
+{
+    int rank;
+
+    MPI_Comm_rank(comm, &rank);
+
+    Particles ptls;
+
+    if (rank == 0)
+    {
+        for (auto const &inner : pmap)
+        {
+            for (auto const &ptl : inner.second)
+            {
+                ptls.push_back(ptl.second);
+            }
+        }
+    }
+
+    int nptls = ptls.size();
+    MPI_Bcast(&nptls, 1, MPI_INT, 0, comm);
+
+    ptls.resize(nptls);
+    int nbytes = ptls.size() * sizeof(struct Particle);
+
+    MPI_Bcast(ptls.data(), nbytes, MPI_CHAR, 0, comm);
+
+    // Reconstruct pmap by using the data from rank 0
+    if (rank > 0)
+    {
+        for (auto const &ptl : ptls)
+        {
+            add(pmap, ptl);
+        }
     }
 }

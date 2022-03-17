@@ -44,6 +44,7 @@ void load_finalize()
     reader.Close();
 }
 
+// idiv, ediv (local), iesc, eesc (global)
 adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
 {
     // Clear vector
@@ -244,6 +245,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
         MPI_Gatherv(ephase.data(), ephase.size(), MPI_FLOAT, ephase_total.data(), len_list.data(),
                     displacement_list.data(), MPI_FLOAT, 0, reader_comm);
 
+        // Rank 0 populate iesc and eesc (to be distributed)
         if (reader_comm_rank == 0)
         {
             // populate particles
@@ -272,16 +274,12 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 Flags fl(flag1); // decode flags
 
                 // save to div or esc
+                // (2022/03/16) esc is global (will be shared with all), div is local
                 if (fl.escaped)
                 {
                     // add to esc
                     // iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
                     add(iesc, iptl);
-                }
-                else
-                {
-                    // add to div
-                    idiv.push_back(iptl);
                 }
             }
 
@@ -316,11 +314,72 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                     // eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
                     add(eesc, eptl);
                 }
-                else
-                {
-                    // add to div
-                    ediv.push_back(eptl);
-                }
+            }
+        }
+
+        // Everone
+        // populate idiv with local data
+        for (int i = 0; i < igid.size(); i++)
+        {
+            struct Particle iptl;
+            iptl.gid = igid[i];
+            iptl.flag = iflag[i];
+            iptl.esc_step = istep[i];
+            iptl.r = GET(iphase, i, 0);
+            iptl.z = GET(iphase, i, 1);
+            iptl.phi = GET(iphase, i, 2);
+            iptl.rho = GET(iphase, i, 3);
+            iptl.w1 = GET(iphase, i, 4);
+            iptl.w2 = GET(iphase, i, 5);
+            iptl.mu = GET(iphase, i, 6);
+            iptl.w0 = GET(iphase, i, 7);
+            iptl.f0 = GET(iphase, i, 8);
+            iptl.psi = GET(iphase, i, 9);
+            iptl.B = GET(iphase, i, 10);
+            iptl.dw = idw[i];
+
+            int flag1; // tmp flag
+            flag1 = iflag[i];
+
+            Flags fl(flag1); // decode flags
+
+            if (!fl.escaped)
+            {
+                // add to div
+                idiv.push_back(iptl);
+            }
+        }
+
+        // populate ediv with local data
+        for (int i = 0; i < egid.size(); i++)
+        {
+            struct Particle eptl;
+            eptl.gid = egid[i];
+            eptl.flag = eflag[i];
+            eptl.esc_step = estep[i];
+            eptl.r = GET(ephase, i, 0);
+            eptl.z = GET(ephase, i, 1);
+            eptl.phi = GET(ephase, i, 2);
+            eptl.rho = GET(ephase, i, 3);
+            eptl.w1 = GET(ephase, i, 4);
+            eptl.w2 = GET(ephase, i, 5);
+            eptl.mu = GET(ephase, i, 6);
+            eptl.w0 = GET(ephase, i, 7);
+            eptl.f0 = GET(ephase, i, 8);
+            eptl.psi = GET(ephase, i, 9);
+            eptl.B = GET(ephase, i, 10);
+            eptl.dw = edw[i];
+
+            int flag1; // tmp flag
+            flag1 = eflag[i];
+
+            Flags fl(flag1); // decode flags
+
+            // save to div or esc
+            if (!fl.escaped)
+            {
+                // add to div
+                ediv.push_back(eptl);
             }
         }
         reader.EndStep();
