@@ -187,8 +187,8 @@ set(extra_header_template_sources
   )
 
 set(extra_sources_device
-#  ${ClipWithFieldInstantiations}
-#  ${ClipWithImplicitFunctionInstantiations}
+  ${ClipWithFieldInstantiations}
+  ${ClipWithImplicitFunctionInstantiations}
   ExternalFaces.cxx
   VectorMagnitude.cxx
   particleadvection/Messenger.cxx
@@ -214,7 +214,7 @@ set(contour_header_template_sources
 set(contour_sources_device
   Contour.cxx
   ${ContourInstantiations}
-  Slice.cxx
+##  Slice.cxx
   )
 
 set(gradient_headers

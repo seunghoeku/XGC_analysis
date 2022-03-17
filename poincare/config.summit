@@ -9,9 +9,10 @@ cmake \
  -DVTKm_ENABLE_CUDA=ON \
  -DVTKm_ENABLE_OPENMP=ON \
  -DVTKm_ENABLE_MPI=OFF \
- -DKokkos_DIR=/gpfs/alpine/proj-shared/csc143/pugmire/summit/vtkm/kokkos/kokkos/install/lib64/cmake/Kokkos \
- -DFides_DIR=/gpfs/alpine/proj-shared/csc143/pugmire/summit/vtkm/fides/install/lib/cmake/fides \
  -DADIOS2_DIR=/sw/summit/spack-envs/base/opt/linux-rhel8-ppc64le/gcc-7.5.0/adios2-2.7.1-qtvhwjxzdlbro3zv7zytmxm72fc3a5d5/lib64/cmake/adios2 \
  -DVTKm_USE_DOUBLE_PRECISION=ON \
- -DCMAKE_CUDA_FLAGS=-lineinfo \
 ../vtk-m
+
+# -DKokkos_DIR=/gpfs/alpine/proj-shared/csc143/pugmire/summit/vtkm/kokkos/kokkos/install/lib64/cmake/Kokkos \
+# -DFides_DIR=/gpfs/alpine/proj-shared/csc143/pugmire/summit/vtkm/fides/install/lib/cmake/fides \
+

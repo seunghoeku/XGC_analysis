@@ -28,13 +28,46 @@ namespace vtkm
 namespace worklet
 {
 
+__device__ float cuda_timers[100];
+    
+
 struct HelloWorklet : public vtkm::worklet::WorkletMapField
 {
-  using ControlSignature = void(FieldIn inVector, FieldOut outMagnitude);
+    using ControlSignature = void(FieldIn inVector, FieldOut outMagnitude, FieldOut timer);
+    using ExecutionSignature = void(InputIndex, _1, _2, _3);
 
-  VTKM_EXEC void operator()(const vtkm::Vec3f& inVector, vtkm::FloatDefault& outMagnitude) const
+  VTKM_EXEC void operator()(const vtkm::Id idx, const vtkm::Vec3f& inVector, vtkm::FloatDefault& outMagnitude, vtkm::FloatDefault& timer) const
   {
+    unsigned int start = clock();
     outMagnitude = vtkm::Magnitude(inVector);
+    
+    if (idx < 10)
+    {
+        for (int i = 0; i < 10000; i++)
+            outMagnitude = outMagnitude * 1.01;
+        
+        for (int i = 0; i < 10000; i++)
+            outMagnitude = outMagnitude * 1.0012983892;
+        
+        for (int i = 0; i < 10000; i++)
+            outMagnitude = outMagnitude * 1.0018938923912398;
+    }
+
+    unsigned int end = clock();
+    unsigned int tot;
+      if (end > start)
+          tot = end-start;
+      else
+          tot = end + (0xffffffff - start);
+      
+      //long long int dT = end-start;
+      vtkm::FloatDefault dT = (double)(tot) / 1000000000.0;
+      timer = dT;
+      //vtkm::FloatDefault dT = (double)(end-start) / 100000.0;      
+      //printf("idx: %lld %20.18lf\n", idx, dT);
+      //cuda_timers[idx] = dT;
+      //outMagnitude = dT;
+      //printf("dT= %lld --> %lld : %lld\n", start, end, dT);
   }
 };
 }
@@ -60,11 +93,13 @@ public:
     VTKM_IS_ARRAY_HANDLE(FieldType);
 
     //construct our output
-    vtkm::cont::ArrayHandle<vtkm::FloatDefault> outField;
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> outField, timer;
 
     //construct our invoker to launch worklets
     vtkm::worklet::HelloWorklet mag;
-    this->Invoke(mag, inField, outField); //launch mag worklets
+    this->Invoke(mag, inField, outField, timer); //launch mag worklets
+
+    vtkm::cont::printSummary_ArrayHandle(timer, std::cout, true);
 
     //construct output field information
     if (this->GetOutputFieldName().empty())
@@ -84,6 +119,7 @@ public:
 int main(int argc, char** argv)
 {
   vtkm::cont::Initialize(argc, argv);
+  vtkm::cont::GetRuntimeDeviceTracker().ForceDevice(vtkm::cont::DeviceAdapterTagCuda{});
 
   if ((argc < 3) || (argc > 4))
   {
@@ -95,6 +131,7 @@ int main(int argc, char** argv)
       << " <path-to-vtkm-source>/data/data/unstructured/simple_unstructured_bin.vtk vectors\n";
     return 1;
   }
+  
   std::string infilename = argv[1];
   std::string infield = argv[2];
   std::string outfilename = "out_data.vtk";

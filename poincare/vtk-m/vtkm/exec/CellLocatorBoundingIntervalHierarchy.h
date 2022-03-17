@@ -10,6 +10,7 @@
 #ifndef vtk_m_exec_CellLocatorBoundingIntervalHierarchy_h
 #define vtk_m_exec_CellLocatorBoundingIntervalHierarchy_h
 
+#include <vtkm/exec/CellLocatorMultiplexer.h>
 #include <vtkm/TopologyElementTag.h>
 #include <vtkm/VecFromPortalPermute.h>
 #include <vtkm/cont/ArrayHandle.h>
@@ -21,9 +22,6 @@ namespace vtkm
 {
 namespace exec
 {
-
-
-
 
 struct CellLocatorBoundingIntervalHierarchyNode
 {
@@ -63,6 +61,9 @@ struct CellLocatorBoundingIntervalHierarchyNode
 template <typename CellSetType>
 class VTKM_ALWAYS_EXPORT CellLocatorBoundingIntervalHierarchy
 {
+  template <typename T>
+  using ReadPortal = typename vtkm::cont::ArrayHandle<T>::ReadPortalType;
+
   using NodeArrayHandle =
     vtkm::cont::ArrayHandle<vtkm::exec::CellLocatorBoundingIntervalHierarchyNode>;
   using CellIdArrayHandle = vtkm::cont::ArrayHandle<vtkm::Id>;
@@ -208,6 +209,14 @@ public:
   VTKM_EXEC CellLocatorBoundingIntervalHierarchy* operator->() { return this; }
   VTKM_DEPRECATED(1.6, "Locators are no longer pointers. Use . operator.")
   VTKM_EXEC const CellLocatorBoundingIntervalHierarchy* operator->() const { return this; }
+
+
+  VTKM_EXEC ReadPortal<vtkm::Vec<vtkm::Int16, 3>> GetLeafDimensions() const {return ReadPortal<vtkm::Vec<vtkm::Int16, 3>>();}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetLeafStartIndex() const {return ReadPortal<vtkm::Id>();}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellStartIndex() const {return ReadPortal<vtkm::Id>();}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellCount() const {return ReadPortal<vtkm::Id>();}
+  VTKM_EXEC ReadPortal<vtkm::Id> GetCellIds() const {return ReadPortal<vtkm::Id>();}
+  VTKM_EXEC vtkm::exec::Grid GetTopLevel() const { return vtkm::exec::Grid();}
 
 private:
   enum struct FindCellState
