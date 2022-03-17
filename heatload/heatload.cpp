@@ -15,7 +15,7 @@ MPI_Comm heatload_comm;
 int heatload_comm_size;
 int heatload_comm_rank;
 
-void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
+void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool read_restart)
 {
     // init simulation parameters
     init(ad, xgcdir);
@@ -28,8 +28,11 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
     MPI_Comm_rank(heatload_comm, &heatload_comm_rank);
     MPI_Comm_size(heatload_comm, &heatload_comm_size);
 
-    ptldb_load(iesc_db, "heatload_iesc_db.bp");
-    ptldb_load(eesc_db, "heatload_eesc_db.bp");
+    if (read_restart)
+    {
+        ptldb_load(iesc_db, "heatload_iesc_db.bp");
+        ptldb_load(eesc_db, "heatload_eesc_db.bp");
+    }
 }
 
 void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
@@ -63,7 +66,7 @@ void test()
     }
 }
 
-int heatload_step(adios2::ADIOS *ad, int istep)
+int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 {
     Particles idiv;
     Particles ediv;
@@ -111,7 +114,10 @@ int heatload_step(adios2::ADIOS *ad, int istep)
     HeatLoad elec(0);
 
     heatload_calc(idiv, ion, iesc_db, !heatload_comm_rank); // need to send DB
-    heatload_calc(ediv, elec, eesc_db, !heatload_comm_rank);
+    if (!ion_only)
+    {
+        heatload_calc(ediv, elec, eesc_db, !heatload_comm_rank);
+    }
     output(ad, ion, elec, heatload_comm);
 
     return 0;

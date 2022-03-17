@@ -183,7 +183,6 @@ void ptldb_print(t_ParticleDB &db, std::string str)
         LOG << str << " info: step " << istep << " : " << nptls;
         istep++;
     }
-    LOG << str << " nbin: " << MMOD;
 }
 
 int ptlmap_count(t_ParticlesList &pmap)
