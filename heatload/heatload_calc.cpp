@@ -18,9 +18,9 @@ static long int _progress_step_current = 0;
 void progress_step(long int total)
 {
     ++_progress_step_current;
-    if (_progress_step_current % 100 == 0)
+    if (_progress_step_current % 1'000 == 0)
         std::cerr << ".";
-    if ((_progress_step_current - 1) % 5000 == 0)
+    if ((_progress_step_current - 1) % 50'000 == 0)
         fprintf(stderr, "\n%ld/%ld ", _progress_step_current - 1, total);
 }
 

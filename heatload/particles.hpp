@@ -32,10 +32,7 @@ struct Particle
 };
 
 typedef std::vector<struct Particle> Particles;
-// typedef std::map<long long, Particle> t_ParticlesList;
-// typedef std::unordered_map<long long, Particle> t_ParticlesList;
-typedef std::unordered_map<long long, Particle> t_ParticlesListInner;
-typedef std::unordered_map<long long, t_ParticlesListInner> t_ParticlesList;
+typedef std::unordered_map<long long, struct Particle> t_ParticlesList;
 typedef std::vector<t_ParticlesList> t_ParticleDB;
 
 void set_nbin(uint64_t nbin);

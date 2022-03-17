@@ -8,90 +8,43 @@
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
-// Particle search(t_ParticleDB &db, int timestep, long long gid)
-// {
-//     assert(timestep < db.size());
-
-//     Particle ptl;
-//     ptl.gid = -1;
-
-//     t_ParticlesList ptls = db[timestep];
-//     auto it = ptls.find(gid);
-
-//     if (it != ptls.end())
-//         ptl = it->second;
-
-//     return ptl;
-// }
-
-// Size of bins for mpas in t_ParticleDB and t_ParticlesList
-// This can be a performance parameter
-// Should set before building any
-#define MMOD 1'000'000'000
-
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
     assert(timestep < db.size());
 
-    return db[timestep][gid / MMOD][gid];
-
-    /*
     // (2022/03/17) jyc: "find" is slow
-    Particle ptl;
-    ptl.gid = -1;
-
-    t_ParticlesList pmap = db[timestep];
-    auto it = pmap.find(gid / MMOD);
-
-    if (it != pmap.end())
-    {
-        auto &inner = it->second;
-        auto init = inner.find(gid);
-        if (init != inner.end())
-        {
-            ptl = init->second;
-        }
-    }
-
-    return ptl;
-    */
+    // unorder_map will return gid=0 particle when no match
+    return db[timestep][gid];
 }
 
 void add(t_ParticlesList &pmap, Particle ptl)
 {
-    // pmap.insert(std::pair<long long, Particle>(ptl.gid, ptl));
-    auto it = pmap.find(ptl.gid / MMOD);
-    if (it != pmap.end())
+    pmap.insert({ptl.gid, ptl});
+}
+
+// helper: map-to-vector function
+const Particles maptovec(const t_ParticlesList &pmap)
+{
+    Particles ptls;
+    for (auto const &pair : pmap)
     {
-        auto &inner = it->second;
-        inner.insert({ptl.gid, ptl});
+        ptls.push_back(pair.second);
     }
-    else
-    {
-        t_ParticlesListInner inner;
-        inner.insert(std::pair<long long, Particle>(ptl.gid, ptl));
-        pmap.insert(std::pair<long long, t_ParticlesListInner>(ptl.gid / MMOD, inner));
-    }
+    return ptls;
 }
 
 void ptldb_save(t_ParticleDB &db, std::string filename)
 {
+    int istep = 0;
+
+    // vector of particle vector
     std::vector<Particles> ParticleList;
 
-    int istep = 0;
-    for (auto const &plist : db)
+    for (t_ParticlesList const &pmap : db)
     {
-        Particles ptls;
-        for (auto const &inner : plist)
-        {
-            for (auto const &ptl : inner.second)
-            {
-                ptls.push_back(ptl.second);
-            }
-        }
-        ParticleList.push_back(ptls);
+        ParticleList.push_back(maptovec(pmap));
     }
-    // LOG << "PTLS: " << ParticleList.size();
+    LOG << "PTLS: " << ParticleList.size();
 
     adios2::ADIOS ad;
     adios2::IO io;
@@ -167,18 +120,16 @@ void ptldb_load(t_ParticleDB &db, std::string filename)
         }
         db.push_back(pmap);
     }
+    LOG << "Loading done";
 }
 
 void ptldb_print(t_ParticleDB &db, std::string str)
 {
     int istep = 0;
-    for (auto const &plist : db)
+    for (auto const &pmap : db)
     {
         int nptls = 0;
-        for (auto const &inner : plist)
-        {
-            nptls += inner.second.size();
-        }
+        nptls = pmap.size();
         LOG << str << " info: step " << istep << " : " << nptls;
         istep++;
     }
@@ -186,23 +137,14 @@ void ptldb_print(t_ParticleDB &db, std::string str)
 
 int ptlmap_count(t_ParticlesList &pmap)
 {
-    int count = 0;
-    for (auto const &inner : pmap)
-    {
-        count += inner.second.size();
-    }
-
-    return count;
+    return pmap.size();
 }
 
 void ptlmap_print(t_ParticlesList &pmap, std::string str)
 {
-    for (auto const &inner : pmap)
+    for (auto const &pair : pmap)
     {
-        for (auto const &ptl : inner.second)
-        {
-            LOG << str << " : " << inner.first << " " << ptl.first << " " << ptl.second.gid;
-        }
+        LOG << str << " : " << pair.first << " " << pair.second.gid;
     }
 }
 
@@ -216,12 +158,9 @@ void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
 
     if (rank == 0)
     {
-        for (auto const &inner : pmap)
+        for (auto const &pair : pmap)
         {
-            for (auto const &ptl : inner.second)
-            {
-                ptls.push_back(ptl.second);
-            }
+            ptls.push_back(pair.second);
         }
     }
 
