@@ -43,6 +43,8 @@ if __name__ == "__main__":
     parser.add_argument("--decomposition", help="var", nargs="+", type=int)
     parser.add_argument("--append", help="append mode", action="store_true")
     parser.add_argument("--npanout", help="npanout", type=int, default=1)
+    parser.add_argument("--start", help="start", type=int, default=0)
+    parser.add_argument("--nstep", help="nstep", type=int, default=1000)
     args = parser.parse_args()
 
     comm = MPI.COMM_WORLD
@@ -72,10 +74,12 @@ if __name__ == "__main__":
 
     adios = ad2.ADIOS("adios2cfg.xml", ad2.DebugON)
 
+    fname_list = list()
     writer_list = list()
     for i in range(args.npanout):
         io = adios.DeclareIO("field3D.%d" % i)
         fname = "%s.%d.bp" % (args.outfile, i)
+        fname_list.append(fname)
         writer = io.Open(fname, ad2.Mode.Write, comm)
         writer_list.append((io, writer))
 
@@ -88,6 +92,9 @@ if __name__ == "__main__":
     ) as fh:
         for fstep in fh:
             istep = fstep.current_step()
+            if (istep < args.start) or (istep >= args.start + args.nstep):
+                continue
+
             var_list = list()
             varinfo_list = list()
             if args.var is None:
@@ -119,6 +126,7 @@ if __name__ == "__main__":
                 varinfo_list.append((vname, nsize, start, count, val))
 
             ## Output
+            logging.info(f"Writing: %s"%(fname_list[istep % args.npanout]))
             io, writer = writer_list[istep % args.npanout]
 
             ## Define variables at a first time
