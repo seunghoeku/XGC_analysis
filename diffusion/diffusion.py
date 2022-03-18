@@ -1,7 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import colors
 from matplotlib.tri import Triangulation
 import adios2
-
+import traceback
 
 # set the colormap and centre the colorbar
 class MidpointNormalize(colors.Normalize):
@@ -27,7 +29,7 @@ class MidpointNormalize(colors.Normalize):
 
 
 class Diffusion():
-    def __init__(self, path='./', aggregate=True, engine="SST", channel_name="diffusion"):
+    def __init__(self, path='./', aggregate=True, engine="SST", channel_name="diffusion", isp=0):
 
         self.aggregate = aggregate
 
@@ -43,6 +45,8 @@ class Diffusion():
             self.regions, self.regpsin, self.regtheta = self.create_regions()
 
         self.setup_adios(engine, channel_name)
+
+        self.isp = isp
 
     def workflow(self):
         """Continually read in XGC data from adios stream, calc reduced stats, plot"""
@@ -72,23 +76,36 @@ class Diffusion():
                     sigma_rs, sigma_Ens = self.aggregate_stats()
                     Deff = sigma_rs/(2*self.dt*tindex)
                     chieff = sigma_Ens/(2*self.dt*tindex)
-                    self.plot_regions(Deff, chieff)
+                    try:
+                        plt.figure()
+                        self.plot_regions(Deff, chieff)
+                        fname = "fig-diffusion1-%d.%d.jpg"%(self.isp, tindex)
+                        plt.savefig()
+                        print ("Saved:", fname)
+                    except Exception as e:
+                        print ("ERROR: plotting error", e)
+                        traceback.print_exc()
                 else:
-                    sigma_rs, sigma_Ens = self.calc_sigma(self.dr_stds[tindex], self.En_dr_stds[tindex], 
-                                                          self.dr_avgs[tindex] , self.En_dr_avgs[tindex],
-                                                          self.marker_dens[tindex])
+                    sigma_rs, sigma_Ens = self.calc_sigma(self.dr_stds[tindex-1], self.En_dr_stds[tindex-1], 
+                                                          self.dr_avgs[tindex-1] , self.En_dr_avgs[tindex-1],
+                                                          self.marker_dens[tindex-1])
                     Deff = sigma_rs/(2*self.dt*tindex)
                     chieff = sigma_Ens/(2*self.dt*tindex)
+                    plt.figure()
                     self.plot_tri2d(Deff, chieff)
+                    fname = "fig-diffusion2-%d.%d.jpg"%(self.isp, tindex)
+                    plt.savefig(fname)
+                    print ("Saved:", fname)
+            else:
+                break
 
 
-
-    def setup_adios(engine, channel_name):
+    def setup_adios(self, engine, channel_name):
         """setup adios2 reader"""
         self.adios = adios2.ADIOS()
-        self.IO = self.adios.DeclareIO(gen_io_name(0))
+        self.IO = self.adios.DeclareIO("diffusion")
         self.IO.SetEngine(engine)
-        self.reader = self.IO.Open(self.channel_name, adios2.Mode.Read)
+        self.reader = self.IO.Open(channel_name, adios2.Mode.Read)
         #self.IO.SetParameters()
 
 
@@ -96,17 +113,40 @@ class Diffusion():
     def read_stats(self,inds=Ellipsis):
         #these come from XGC gathered locally on the rank, so this is an all-reduce performed by ADIOS2
         #these are not normalized to the 1/N factor, and so need to be done somewhere (N=marker_den)
-        var = self.IO.InquireVariable('dr_std')
-        dr_std = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('dr_average')
-        dr_avg = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('En_dr_std')
-        En_dr_std = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('En_dr_average')
-        En_dr_avg = self.reader.Get(var, )[inds]
-        var = self.IO.InquireVariable('marker_den')
-        marker_den = self.reader.Get(var, )[inds]
-        return dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den
+
+        ntri = len(self.tri)
+        dr_std = np.zeros(ntri, dtype=np.double)
+        dr_avg = np.zeros(ntri, dtype=np.double)
+        En_dr_std = np.zeros(ntri, dtype=np.double)
+        En_dr_avg = np.zeros(ntri, dtype=np.double)
+        marker_den = np.zeros(ntri, dtype=np.double)
+
+        if self.isp == 0:
+            var = self.IO.InquireVariable('e_dr_squared_average')
+            self.reader.Get(var, dr_std)
+            var = self.IO.InquireVariable('e_dr_avg')
+            self.reader.Get(var, dr_avg)
+            var = self.IO.InquireVariable('e_dE_squared_average')
+            self.reader.Get(var, En_dr_std)
+            var = self.IO.InquireVariable('e_dE_avg')
+            self.reader.Get(var, En_dr_avg)
+            var = self.IO.InquireVariable('e_marker_den')
+            self.reader.Get(var, marker_den)
+            self.reader.PerformGets()
+        else:
+            var = self.IO.InquireVariable('i_dr_squared_average')
+            self.reader.Get(var, dr_std)
+            var = self.IO.InquireVariable('i_dr_avg')
+            self.reader.Get(var, dr_avg)
+            var = self.IO.InquireVariable('i_dE_squared_average')
+            self.reader.Get(var, En_dr_std)
+            var = self.IO.InquireVariable('i_dE_avg')
+            self.reader.Get(var, En_dr_avg)
+            var = self.IO.InquireVariable('i_marker_den')
+            self.reader.Get(var, marker_den)
+            self.reader.PerformGets()
+
+        return dr_std[inds],En_dr_std[inds],dr_avg[inds],En_dr_avg[inds],marker_den[inds]
 
 
     def read_mesh(self, filename_mesh, filename_eq):
@@ -118,7 +158,7 @@ class Diffusion():
         fm.close()
         self.triObj = Triangulation(self.RZ[:,0],self.RZ[:,1],self.tri)
         feq = adios2.open(filename_eq,'r')
-        self.psi_x = feq.read('eq_psi_x')
+        self.psi_x = feq.read('eq_x_psi')
         feq.close()
         
 
@@ -132,10 +172,10 @@ class Diffusion():
 
 
     def create_regions(self, theta0=-60, theta1 = 30, dtheta = 10, 
-                             psin0=1.0, psin1 = 1.01, dpsin = 0.01):
+                             psin0=1.0, psin1 = 1.3, dpsin = 0.01):
         """Create list of arrays of indices defining regions to aggregate over"""
         Nthetas = int((theta1-theta0)/dtheta)
-        thetas= theta0 + np.arange(Nthetas)*dtheta
+        thetas= theta0 + np.arange(Nthetas, dtype=np.double)*dtheta
         thetas *= np.pi/180 #convert deg. to rad.
         Npsins = int((psin1-psin0)/dpsin)
         psins= psin0 + np.arange(Npsins)*dpsin
@@ -145,27 +185,27 @@ class Diffusion():
         regtheta = []
         for t in range(Nthetas-1):
             for p in range(Npsins-1):
-                inds = np.where((psins[p]>=self.psin) & (psins[p+1]<self.psin)
-                                (thetas[p]>=self.theta) & (thetas[t+1]<self.theta))[0]
+                inds = np.where((psins[p+1]>=self.psin) & (psins[p]<self.psin) & 
+                                (thetas[t+1]>=self.theta) & (thetas[t]<self.theta))[0]
                 regions.append(inds)
                 regpsin.append((psins[p+1]+psins[p])/2.)
-                regtheta.append((theta[p+1]+theta[p])/2.)
+                regtheta.append((thetas[t+1]+thetas[t])/2.)
         
         return regions, regpsin, regtheta
 
 
     def aggregate_stats(self, tindex=-1):
         """Aggregate the sigmas over regions defined by create_regions"""
-        sigma_rs = np.zeros((len(regions),))
-        sigma_Ens = np.zeros((len(regions),))
-        for i,region in enumerate(regions):
+        sigma_rs = np.zeros((len(self.regions),))
+        sigma_Ens = np.zeros((len(self.regions),))
+        for i,region in enumerate(self.regions):
             sigma_rs[i], sigma_Ens[i] = self.calc_sigma(self.dr_stds[tindex][region], self.En_dr_stds[tindex][region], 
                                            self.dr_avgs[tindex][region] , self.En_dr_avgs[tindex][region],
                                            self.marker_dens[tindex][region])
         return sigma_rs, sigma_Ens
 
     
-    def calc_sigma(dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den):
+    def calc_sigma(self, dr_std,En_dr_std,dr_avg,En_dr_avg,marker_den):
         """Calculate the true std. dev. of markers"""
         #calculate sigma_r and sigma_En
         sigma_r = dr_std/marker_den - (dr_avg/marker_den)**2.
@@ -197,10 +237,15 @@ class Diffusion():
         plt.title(title)
 
 
-    def plot_tri2d(Deff, chieff):
+    def plot_tri2d(self, Deff, chieff):
         fig, axs = plt.subplots(2,1)
         axs[0].tripcolor(self.triObj,Deff)
         axs[1].tripcolor(self.triObj,chieff)
 
+if __name__ == "__main__":
 
+    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp", aggregate=False, isp=0)
+    diffusion.workflow()
             
+    diffusion = Diffusion(engine="BP4", channel_name="xgc.diffusion.bp", aggregate=False, isp=1)
+    diffusion.workflow()
