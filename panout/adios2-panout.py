@@ -44,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("--append", help="append mode", action="store_true")
     parser.add_argument("--npanout", help="npanout", type=int, default=1)
     parser.add_argument("--start", help="start", type=int, default=0)
-    parser.add_argument("--nstep", help="nstep", type=int, default=1000)
+    parser.add_argument("-s", "--nstep", help="nstep", type=int, default=1000)
     args = parser.parse_args()
 
     comm = MPI.COMM_WORLD
@@ -126,7 +126,7 @@ if __name__ == "__main__":
                 varinfo_list.append((vname, nsize, start, count, val))
 
             ## Output
-            logging.info(f"Writing: %s"%(fname_list[istep % args.npanout]))
+            logging.info(f"Writing: %s" % (fname_list[istep % args.npanout]))
             io, writer = writer_list[istep % args.npanout]
 
             ## Define variables at a first time
