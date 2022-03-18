@@ -85,46 +85,47 @@ if __name__ == "__main__":
             config_file="adios2cfg.xml",
             io_in_config_file="field3D",
         ) as fh:
-            var_list = list()
-            varinfo_list = list()
-            if args.var is None:
-                var_list.extend(fh.available_variables())
-            else:
-                var_list.extend(args.var)
+            for fstep in fh:
+                var_list = list()
+                varinfo_list = list()
+                if args.var is None:
+                    var_list.extend(fstep.available_variables())
+                else:
+                    var_list.extend(args.var)
 
-            for vname in var_list:
-                nstep, nsize = adios2_get_shape(fh, vname)
-                ndim = len(nsize)
-                start, count = (), ()
-                # print (vname, nstep, ndim, nsize)
+                for vname in var_list:
+                    nstep, nsize = adios2_get_shape(fstep, vname)
+                    ndim = len(nsize)
+                    start, count = (), ()
+                    # print (vname, nstep, ndim, nsize)
 
-                if ndim > 0:
-                    x = list()
-                    for i in range(ndim):
-                        y = list()
-                        for j in range(decomposition[i]):
-                            s = split(nsize[i], decomposition[i], j)
-                            y.append(s)
-                        x.append(y)
-                    # print(x)
+                    if ndim > 0:
+                        x = list()
+                        for i in range(ndim):
+                            y = list()
+                            for j in range(decomposition[i]):
+                                s = split(nsize[i], decomposition[i], j)
+                                y.append(s)
+                            x.append(y)
+                        # print(x)
 
-                    z = list(itertools.product(*x))[rank]
-                    start, count = list(zip(*z))
+                        z = list(itertools.product(*x))[rank]
+                        start, count = list(zip(*z))
 
-                logging.info((istep, vname, nsize, start, count))
-                val = fh.read(vname, start=start, count=count)
-                varinfo_list.append((vname, nsize, start, count, val))
+                    logging.info((istep, vname, nsize, start, count))
+                    val = fstep.read(vname, start=start, count=count)
+                    varinfo_list.append((vname, nsize, start, count, val))
 
-            ## Define variables at a first time
-            if (istep // args.npanout) == 0:
-                define_variables(io, varinfo_list)
+                ## Define variables at a first time
+                if (istep // args.npanout) == 0:
+                    define_variables(io, varinfo_list)
 
-            ## Write a step
-            writer.BeginStep()
-            for vname, shape, start, count, val in varinfo_list:
-                var = io.InquireVariable(vname)
-                writer.Put(var, val)
-            writer.EndStep()
+                ## Write a step
+                writer.BeginStep()
+                for vname, shape, start, count, val in varinfo_list:
+                    var = io.InquireVariable(vname)
+                    writer.Put(var, val)
+                writer.EndStep()
         istep += 1
 
     ## Output close
