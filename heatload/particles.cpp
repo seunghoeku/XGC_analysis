@@ -40,7 +40,7 @@ void ptldb_save(t_ParticleDB &db, std::string filename)
     // vector of particle vector
     std::vector<Particles> ParticleList;
 
-    for (t_ParticlesList const &pmap : db)
+    for (auto const &pmap : db)
     {
         ParticleList.push_back(maptovec(pmap));
     }
@@ -130,6 +130,19 @@ void ptldb_print(t_ParticleDB &db, std::string str)
         int nptls = 0;
         nptls = pmap.size();
         LOG << str << " info: step " << istep << " : " << nptls;
+        istep++;
+    }
+}
+
+void ptldb_dump(t_ParticleDB &db, std::string str)
+{
+    int istep = 0;
+    for (auto const &pmap : db)
+    {
+        for (auto const &pair : pmap)
+        {
+            LOG << str << " info: step " << istep << " : " << pair.first;
+        }
         istep++;
     }
 }

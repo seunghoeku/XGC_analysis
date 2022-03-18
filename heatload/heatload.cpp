@@ -3,7 +3,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
-void init(adios2::ADIOS *ad, std::string xgcdir); // initialization
+void init(adios2::ADIOS *ad, std::string xgcdir);                         // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
@@ -114,6 +114,10 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
     HeatLoad elec(0);
 
     heatload_calc(idiv, ion, iesc_db); // need to send DB
+    // Debug
+    // ptldb_dump(iesc_db, "iesc_db");
+    // auto p = search(iesc_db, 0, 820040877);
+    // LOG << "Found? " << p.gid;
     if (!ion_only)
     {
         heatload_calc(ediv, elec, eesc_db);

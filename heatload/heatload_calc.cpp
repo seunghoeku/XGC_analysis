@@ -58,6 +58,7 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
         // printf("%lld %d\n", p.gid, p.esc_step);
         if (p_esc.gid > 0)
         {
+            printf("Found: %lld %d\n", p.gid, p.esc_step);
             Conditions cond(p_esc); // get conditions from particle info when escaped.
 
             // check inner or outer
