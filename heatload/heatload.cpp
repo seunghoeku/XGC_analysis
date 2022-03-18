@@ -3,8 +3,8 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
-void init(adios2::ADIOS *ad, std::string xgcdir);                                                // initialization
-void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int show_progress = 0); // calculate heatload
+void init(adios2::ADIOS *ad, std::string xgcdir); // initialization
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
@@ -113,10 +113,10 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
     HeatLoad ion(1);
     HeatLoad elec(0);
 
-    heatload_calc(idiv, ion, iesc_db, !heatload_comm_rank); // need to send DB
+    heatload_calc(idiv, ion, iesc_db); // need to send DB
     if (!ion_only)
     {
-        heatload_calc(ediv, elec, eesc_db, !heatload_comm_rank);
+        heatload_calc(ediv, elec, eesc_db);
     }
     output(ad, ion, elec, heatload_comm);
 

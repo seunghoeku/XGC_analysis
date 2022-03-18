@@ -12,7 +12,7 @@
 #define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
-void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int show_progress = 0); // calculate heatload
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
 Heatload::Heatload(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {

@@ -44,7 +44,6 @@ void ptldb_save(t_ParticleDB &db, std::string filename)
     {
         ParticleList.push_back(maptovec(pmap));
     }
-    LOG << "PTLS: " << ParticleList.size();
 
     adios2::ADIOS ad;
     adios2::IO io;
@@ -62,7 +61,7 @@ void ptldb_save(t_ParticleDB &db, std::string filename)
         istep++;
     }
 
-    LOG << "Writing: " << filename;
+    LOG << "Writing: " << filename << " nsteps: " << ParticleList.size();
     writer = io.Open(filename, adios2::Mode::Write, MPI_COMM_SELF);
     istep = 0;
     for (auto const &ptls : ParticleList)

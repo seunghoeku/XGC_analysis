@@ -32,17 +32,17 @@ void progress_step(long int total)
 }
 
 // get heatload of single species
-void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int show_progress = 0)
+void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
 {
 
-    printf("\nHeatload calc particle size: %ld\n", div.size());
+    LOG << "Heatload calc div particle size " << div.size();
     // reset progress bar
     _progress_step_current = 0;
     std::time_t start = std::time(nullptr);
-#pragma omp parallel for default(none) shared(sml, div, db, sp, show_progress, std::cerr)
+#pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
     for (int i = 0; i < div.size(); i++)
     {
-        if (show_progress)
+        if (true)
         {
 #pragma omp critical
             {
@@ -95,5 +95,5 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int sho
             }
         }
     }
-    printf("\nWall time (seconds): %f\n", std::difftime(std::time(nullptr), start));
+    LOG << "Wall time (seconds): " << std::difftime(std::time(nullptr), start);
 }
