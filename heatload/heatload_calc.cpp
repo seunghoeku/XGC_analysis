@@ -11,6 +11,11 @@
 #include <omp.h>
 #endif
 
+#include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup.hpp>
+
+#define LOG BOOST_LOG_TRIVIAL(debug)
+
 extern Simulation sml;
 extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 
@@ -18,10 +23,12 @@ static long int _progress_step_current = 0;
 void progress_step(long int total)
 {
     ++_progress_step_current;
-    if (_progress_step_current % 1'000 == 0)
-        std::cerr << ".";
-    if ((_progress_step_current - 1) % 50'000 == 0)
-        fprintf(stderr, "\n%ld/%ld ", _progress_step_current - 1, total);
+    // if (_progress_step_current % 1'000 == 0)
+    //     std::cerr << ".";
+    // if ((_progress_step_current - 1) % 50'000 == 0)
+    //     fprintf(stderr, "\n%ld/%ld ", _progress_step_current - 1, total);
+    if ((_progress_step_current) % 50'000 == 0)
+        LOG << _progress_step_current << "/" << total << " processed";
 }
 
 // get heatload of single species
@@ -48,6 +55,7 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db, int sho
         double wp = p.dw * p.w0;
 
         struct Particle p_esc = search(db, p.esc_step, p.gid); // particle info when it escaped.
+        // printf("%lld %d\n", p.gid, p.esc_step);
         if (p_esc.gid > 0)
         {
             Conditions cond(p_esc); // get conditions from particle info when escaped.
