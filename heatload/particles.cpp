@@ -8,13 +8,24 @@
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
+// esc_step is 1-based index. zero means no data in the DB
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
-    assert(timestep < db.size());
+    assert(timestep <= db.size());
 
-    // (2022/03/17) jyc: "find" is slow
-    // unorder_map will return gid=0 particle when no match
-    return db[timestep][gid];
+    if (timestep - 1 < 0)
+    {
+        struct Particle none;
+        none.gid = 0;
+        return none;
+    }
+    else
+    {
+        // (2022/03/17) jyc: "find" is slow
+        // unorder_map will return gid=0 particle when no match
+        return db[timestep-1][gid];
+    }
+
 }
 
 void add(t_ParticlesList &pmap, Particle ptl)
