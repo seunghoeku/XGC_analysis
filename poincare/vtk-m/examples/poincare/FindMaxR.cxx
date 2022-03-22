@@ -31,8 +31,8 @@ public:
     const vtkm::FloatDefault cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
 
     vtkm::FloatDefault r0 = 0, r1 = this->RMax;// - this->EqR;
-    std::cout<<"Theta= "<<theta<<std::endl;
-    std::cout<<"R0/R1= "<<r0<<" "<<r1<<std::endl;
+    //std::cout<<"Theta= "<<theta<<std::endl;
+    //std::cout<<"R0/R1= "<<r0<<" "<<r1<<std::endl;
 
     vtkm::Vec3f pt(0,0,0), pcoords;
     vtkm::Id cellId;
@@ -58,7 +58,7 @@ public:
 
     //Set the mid value.
     val = (r0+r1)/2.0;
-    std::cout<<"     MaxR= "<<val<<std::endl;
+    //std::cout<<"     MaxR= "<<val<<std::endl;
   }
 
   vtkm::FloatDefault RMin;
