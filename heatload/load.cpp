@@ -179,12 +179,13 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
 
         MPI_Allgather(&len, 1, MPI_INT, len_list.data(), 1, MPI_INT, reader_comm);
 
-        int ntotal = 0;
+        long int ntotal = 0;
         for (int i = 0; i < len_list.size(); i++)
         {
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
+        LOG << "len,ntotal: " << len << " " << ntotal;
 
         std::vector<long> igid_total(ntotal);
         std::vector<int> iflag_total(ntotal);
@@ -212,6 +213,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
+        LOG << "len,ntotal: " << len << " " << ntotal;
 
         MPI_Gatherv(iphase.data(), iphase.size(), MPI_FLOAT, iphase_total.data(), len_list.data(),
                     displacement_list.data(), MPI_FLOAT, 0, reader_comm);
@@ -227,6 +229,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
+        LOG << "len,ntotal: " << len << " " << ntotal;
 
         std::vector<long> egid_total(ntotal);
         std::vector<int> eflag_total(ntotal);
@@ -254,14 +257,18 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
+        LOG << "len,ntotal: " << len << " " << ntotal;
 
         MPI_Gatherv(ephase.data(), ephase.size(), MPI_FLOAT, ephase_total.data(), len_list.data(),
                     displacement_list.data(), MPI_FLOAT, 0, reader_comm);
+        LOG << "Done with Gather";
 
         // Rank 0 populate iesc and eesc (to be distributed)
         if (reader_comm_rank == 0)
         {
             // populate particles
+#pragma omp parallel for default(none)                                                                                 \
+    shared(igid_total, iflag_total, istep_total, iphase_total, idw_total, iesc, std::cerr)
             for (int i = 0; i < igid_total.size(); i++)
             {
                 struct Particle iptl;
@@ -290,12 +297,16 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 // (2022/03/16) esc is global (will be shared with all), div is local
                 if (fl.escaped)
                 {
-                    // add to esc
-                    // iesc.insert(std::pair<long long, Particle>(iptl.gid, iptl));
-                    add(iesc, iptl);
+#pragma omp critical
+                    {
+                        // add to esc
+                        add(iesc, iptl);
+                    }
                 }
             }
 
+#pragma omp parallel for default(none)                                                                                 \
+    shared(egid_total, eflag_total, estep_total, ephase_total, edw_total, eesc, std::cerr)
             for (int i = 0; i < egid_total.size(); i++)
             {
                 struct Particle eptl;
@@ -323,15 +334,18 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 // save to div or esc
                 if (fl.escaped)
                 {
-                    // add to esc
-                    // eesc.insert(std::pair<long long, Particle>(eptl.gid, eptl));
-                    add(eesc, eptl);
+#pragma omp critical
+                    {
+                        // add to esc
+                        add(eesc, eptl);
+                    }
                 }
             }
         }
 
         // Everone
         // populate idiv with local data
+#pragma omp parallel for default(none) shared(igid, iflag, istep, iphase, idw, idiv, std::cerr)
         for (int i = 0; i < igid.size(); i++)
         {
             struct Particle iptl;
@@ -358,12 +372,16 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
 
             if (!fl.escaped)
             {
-                // add to div
-                idiv.push_back(iptl);
+#pragma omp critical
+                {
+                    // add to div
+                    idiv.push_back(iptl);
+                }
             }
         }
 
         // populate ediv with local data
+#pragma omp parallel for default(none) shared(egid, eflag, estep, ephase, edw, ediv, std::cerr)
         for (int i = 0; i < egid.size(); i++)
         {
             struct Particle eptl;
@@ -391,8 +409,11 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             // save to div or esc
             if (!fl.escaped)
             {
-                // add to div
-                ediv.push_back(eptl);
+#pragma omp critical
+                {
+                    // add to div
+                    ediv.push_back(eptl);
+                }
             }
         }
     }

@@ -191,6 +191,7 @@ void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
 
     ptls.resize(nptls);
     int nbytes = ptls.size() * sizeof(struct Particle);
+    LOG << "ptlmap_sync nbytes: " << nbytes;
 
     MPI_Bcast(ptls.data(), nbytes, MPI_CHAR, 0, comm);
 
