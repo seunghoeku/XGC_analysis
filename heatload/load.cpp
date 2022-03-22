@@ -304,6 +304,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                     }
                 }
             }
+            LOG << "Done with iesc";
 
 #pragma omp parallel for default(none)                                                                                 \
     shared(egid_total, eflag_total, estep_total, ephase_total, edw_total, eesc, std::cerr)
@@ -341,6 +342,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                     }
                 }
             }
+            LOG << "Done with eesc";
         }
 
         // Everone
@@ -379,6 +381,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 }
             }
         }
+        LOG << "Done with idiv";
 
         // populate ediv with local data
 #pragma omp parallel for default(none) shared(egid, eflag, estep, ephase, edw, ediv, std::cerr)
@@ -416,6 +419,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 }
             }
         }
+        LOG << "Done with ediv";
     }
     TIMER_STOP("LOAD_DATA_GATHER");
 
