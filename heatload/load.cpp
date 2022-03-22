@@ -185,7 +185,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
-        LOG << "len,ntotal: " << len << " " << ntotal;
+        LOG << "ion len,ntotal: " << len << " " << ntotal;
 
         std::vector<long> igid_total(ntotal);
         std::vector<int> iflag_total(ntotal);
@@ -213,7 +213,6 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
-        LOG << "len,ntotal: " << len << " " << ntotal;
 
         MPI_Gatherv(iphase.data(), iphase.size(), MPI_FLOAT, iphase_total.data(), len_list.data(),
                     displacement_list.data(), MPI_FLOAT, 0, reader_comm);
@@ -229,7 +228,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
-        LOG << "len,ntotal: " << len << " " << ntotal;
+        LOG << "electron len,ntotal: " << len << " " << ntotal;
 
         std::vector<long> egid_total(ntotal);
         std::vector<int> eflag_total(ntotal);
@@ -257,7 +256,6 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             displacement_list[i] = ntotal;
             ntotal += len_list[i];
         }
-        LOG << "len,ntotal: " << len << " " << ntotal;
 
         MPI_Gatherv(ephase.data(), ephase.size(), MPI_FLOAT, ephase_total.data(), len_list.data(),
                     displacement_list.data(), MPI_FLOAT, 0, reader_comm);
