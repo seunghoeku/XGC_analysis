@@ -8,10 +8,7 @@
 void
 FindMaxR(const vtkm::cont::DataSet& ds,
          XGCParameters& xgcParams,
-         const vtkm::Id& numThetas,
-         vtkm::cont::ArrayHandle<vtkm::FloatDefault> &thetas,
+         std::vector<vtkm::FloatDefault>& thetas,
          vtkm::cont::ArrayHandle<vtkm::FloatDefault> &maxR);
-
-
 
 #endif

@@ -20,12 +20,6 @@ set(Poincare_srcs
  RunPoincare2.cxx
  EvalField.cxx
  )
-# Simple2.3.FindAllCells.cxx
-# Simple2.3.NormalizeField.cxx
-# )
-# Simple2.3.BuildPoincare22L.cxx
-# Simple2.3.BuildPoincare2BIH.cxx
-#)
 
 add_executable(Poincare ${Poincare_srcs})
 
@@ -37,8 +31,4 @@ vtkm_add_target_information(Poincare
 
 if(TARGET vtkm::tbb)
   target_compile_definitions(Poincare PRIVATE BUILDING_TBB_VERSION)
-  target_compile_definitions(Simple PRIVATE BUILDING_TBB_VERSION)
-  target_compile_definitions(Simple2 PRIVATE BUILDING_TBB_VERSION)
-  target_compile_definitions(Simple3 PRIVATE BUILDING_TBB_VERSION)
-  target_compile_definitions(Simple4 PRIVATE BUILDING_TBB_VERSION)
 endif()

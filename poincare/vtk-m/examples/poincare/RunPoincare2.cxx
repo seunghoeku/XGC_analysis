@@ -9,11 +9,7 @@ void
 RunPoincare2(const vtkm::cont::DataSet& ds,
              vtkm::cont::ArrayHandle<vtkm::Particle>& seeds,
              XGCParameters& xgcParams,
-             vtkm::FloatDefault& stepSize,
-             vtkm::Id& numPuncs,
-             bool useBOnly,
-             bool useTraces,
-             bool useLinearB,
+             std::map<std::string, std::vector<std::string>>& args,
              const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& As_ff,
              const vtkm::cont::ArrayHandle<vtkm::Vec3f>& dAs_ff_rzp,
              const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& coeff_1D,
@@ -25,6 +21,29 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
              vtkm::cont::ArrayHandle<vtkm::Vec2f>& outTP,
              vtkm::cont::ArrayHandle<vtkm::Id>& outID)
 {
+  //Get all the arguments...
+  vtkm::FloatDefault stepSize = std::atof(args["--stepSize"][0].c_str());
+  vtkm::Id numPunc = std::atoi(args["--numPunc"][0].c_str());
+
+  bool useTraces = false;
+  if (args.find("--traces") != args.end()) useTraces = std::atoi(args["--traces"][0].c_str());
+  bool useBOnly = false;
+  if (args.find("--useBOnly") != args.end()) useBOnly = true;
+  bool useLinearB = false;
+  if (args.find("--useLinearB") != args.end()) useLinearB = true;
+  if (useLinearB)
+  {
+    useBOnly = true;
+    std::cout<<"Warning: Using linear B, forcing UseBOnly = true."<<std::endl;
+  }
+  bool validateInterp = false;
+  vtkm::Id validateInterpSkip = 1;
+  if (args.find("--validateInterpolation") != args.end())
+  {
+    validateInterp = true;
+    validateInterpSkip = static_cast<vtkm::Id>(std::stoi(args["--validateInterpolation"][0].c_str()));
+  }
+
   vtkm::cont::CellLocatorTwoLevel locator2L;
   locator2L.SetCellSet(ds.GetCellSet());
   locator2L.SetCoordinates(ds.GetCoordinateSystem());
@@ -39,10 +58,13 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
 
   vtkm::cont::Invoker invoker;
 
-  PoincareWorklet2 worklet(numPuncs, 0.0f, stepSize, useTraces, xgcParams);
+  PoincareWorklet2 worklet(numPunc, 0.0f, stepSize, useTraces, xgcParams);
   worklet.UseBOnly = useBOnly;
+
   worklet.one_d_cub_dpsi_inv = 1.0/dPsi;
   worklet.UseLinearB = useLinearB;
+  worklet.ValidateInterpolation = validateInterp;
+  worklet.ValidateInterpolationSkip = validateInterpSkip;
 
   if (useTraces)
   {

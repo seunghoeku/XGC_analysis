@@ -30,8 +30,9 @@ public:
   {
     const vtkm::FloatDefault cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
 
-    vtkm::FloatDefault r0 = 0, r1 = this->RMax - this->EqR;
+    vtkm::FloatDefault r0 = 0, r1 = this->RMax;// - this->EqR;
     //std::cout<<"Theta= "<<theta<<std::endl;
+    //std::cout<<"R0/R1= "<<r0<<" "<<r1<<std::endl;
 
     vtkm::Vec3f pt(0,0,0), pcoords;
     vtkm::Id cellId;
@@ -57,6 +58,7 @@ public:
 
     //Set the mid value.
     val = (r0+r1)/2.0;
+    //std::cout<<"     MaxR= "<<val<<std::endl;
   }
 
   vtkm::FloatDefault RMin;
@@ -69,22 +71,18 @@ public:
 void
 FindMaxR(const vtkm::cont::DataSet& ds,
          XGCParameters& xgcParams,
-         const vtkm::Id& numTheta,
-         vtkm::cont::ArrayHandle<vtkm::FloatDefault> &thetas,
+         std::vector<vtkm::FloatDefault>& thetas,
          vtkm::cont::ArrayHandle<vtkm::FloatDefault> &maxR)
 {
+  auto thetaArr = vtkm::cont::make_ArrayHandle(thetas, vtkm::CopyFlag::On);
+
   vtkm::cont::Invoker invoker;
   FindMaxRWorklet worklet(xgcParams.eq_min_r, xgcParams.eq_max_r, xgcParams.eq_axis_r, xgcParams.eq_axis_z);
-  std::vector<vtkm::FloatDefault> t;
-  vtkm::FloatDefault dTheta = vtkm::TwoPi() / static_cast<vtkm::FloatDefault>(numTheta);
-
-  for (int j = 0; j < numTheta; j++)
-    t.push_back(static_cast<vtkm::FloatDefault>(j) * dTheta);
-  thetas = vtkm::cont::make_ArrayHandle(t, vtkm::CopyFlag::On);
 
   vtkm::cont::CellLocatorTwoLevel locator;
   locator.SetCellSet(ds.GetCellSet());
   locator.SetCoordinates(ds.GetCoordinateSystem());
   locator.Update();
-  invoker(worklet, thetas, locator, maxR);
+
+  invoker(worklet, thetaArr, locator, maxR);
 }
