@@ -15,6 +15,7 @@
 #include <boost/log/utility/setup.hpp>
 #include <boost/program_options.hpp>
 
+#include "cam_timers.hpp"
 #include "diffusion.hpp"
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
@@ -81,6 +82,10 @@ int main(int argc, char *argv[])
 
     adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
+#ifdef CAM_TIMERS
+    GPTLinitialize();
+#endif
+    TIMER_START("TOTAL");
     Diffusion diffusion(ad, xgcdir, comm);
 
     int istep = 1;
@@ -112,6 +117,12 @@ int main(int argc, char *argv[])
     }
 
     diffusion.finalize();
+    TIMER_STOP("TOTAL");
+#ifdef CAM_TIMERS
+    std::string fname = boost::str(boost::format("diffusion-timing.%d") % rank);
+    GPTLpr_file(fname.c_str());
+    GPTLpr_summary_file(comm, "diffusion-timing.summary");
+#endif
 
     delete ad;
     MPI_Finalize();

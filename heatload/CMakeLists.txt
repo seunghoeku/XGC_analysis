@@ -29,6 +29,9 @@ set(SOURCES
     heatload.cpp
 )
 
+include_directories(${PROJECT_SOURCE_DIR}/util)
+message(STATUS ${PROJECT_SOURCE_DIR}/util)
+
 add_library(heatloadlib ${SOURCES})
 add_executable (heatload main.cpp)
 

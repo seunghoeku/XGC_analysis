@@ -23,9 +23,8 @@ Particle search(t_ParticleDB &db, int timestep, long long gid)
     {
         // (2022/03/17) jyc: "find" is slow
         // unorder_map will return gid=0 particle when no match
-        return db[timestep-1][gid];
+        return db[timestep - 1][gid];
     }
-
 }
 
 void add(t_ParticlesList &pmap, Particle ptl)

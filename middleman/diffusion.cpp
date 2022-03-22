@@ -6,6 +6,8 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
+#include "cam_timers.hpp"
+
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
 #define NCOL 11
@@ -62,6 +64,7 @@ void Diffusion::reset()
 
 Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
+    TIMER_START("INIT");
     this->ad = ad;
     this->xgcdir = xgcdir;
 
@@ -79,13 +82,16 @@ Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
         boost::filesystem::path(this->xgcdir) / boost::filesystem::path("xgc.tracer_diag.bp");
     LOG << "Loading: " << fname;
     this->reader = this->io.Open(fname.string(), adios2::Mode::Read, this->comm);
+    TIMER_STOP("INIT");
 }
 
 void Diffusion::finalize()
 {
+    TIMER_START("FINALIZE");
     this->reader.Close();
     if (this->rank == 0)
         this->writer.Close();
+    TIMER_STOP("FINALIZE");
 }
 
 void Diffusion::vec_reduce(std::vector<double> &vec)
@@ -102,6 +108,10 @@ void Diffusion::vec_reduce(std::vector<double> &vec)
 
 adios2::StepStatus Diffusion::step()
 {
+    int total_nrow = 0;
+
+    TIMER_START("STEP");
+    TIMER_START("ADIOS_STEP");
     adios2::StepStatus status = this->reader.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
@@ -115,7 +125,6 @@ adios2::StepStatus Diffusion::step()
 
         int offset = slice.first;
         int nblock = slice.second;
-        int total_nrow = 0;
 
         // Read table block by block
         for (int i = offset; i < offset + nblock; i++)
@@ -133,7 +142,9 @@ adios2::StepStatus Diffusion::step()
             {
                 var_table.SetBlockSelection(block.BlockID);
                 this->reader.Get<double>(var_table, table);
+                TIMER_START("ADIOS_PERFORM_GETS");
                 this->reader.PerformGets();
+                TIMER_STOP("ADIOS_PERFORM_GETS");
             }
 
             // Process each row:
@@ -172,7 +183,13 @@ adios2::StepStatus Diffusion::step()
                 this->e_marker_den[itri] += _e_marker_den;
             }
         }
+        this->reader.EndStep();
+    }
+    TIMER_STOP("ADIOS_STEP");
 
+    TIMER_START("DATA_REDUCE");
+    if (status == adios2::StepStatus::OK)
+    {
         LOG << boost::format("Step %d: MPI reducing table vs mesh: %d %d") % this->istep % (total_nrow * NCOL) %
                    (this->ntriangle * 10);
 
@@ -194,14 +211,20 @@ adios2::StepStatus Diffusion::step()
             this->output();
         }
 
-        this->reader.EndStep();
         this->istep++;
     }
+    TIMER_STOP("DATA_REDUCE");
+
+#ifdef CAM_TIMERS
+    GPTLprint_memusage("STEP MEMUSAGE");
+#endif
+    TIMER_STOP("STEP");
     return status;
 }
 
 void Diffusion::output()
 {
+    TIMER_START("OUTPUT");
     static bool first = true;
 
     if (first)
@@ -237,4 +260,6 @@ void Diffusion::output()
     this->writer.Put<double>("e_dE_squared_average", this->e_dE_squared_average.data());
     this->writer.Put<double>("e_marker_den", this->e_marker_den.data());
     this->writer.EndStep();
+
+    TIMER_STOP("OUTPUT");
 }

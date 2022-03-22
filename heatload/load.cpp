@@ -49,7 +49,7 @@ void load_finalize()
 // idiv, ediv (local), iesc, eesc (global)
 adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
 {
-    TIMER_START ("LOAD_DATA");
+    TIMER_START("LOAD_DATA");
     // Clear vector
     idiv.clear();
     ediv.clear();
@@ -67,7 +67,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
     std::vector<float> iphase;
     std::vector<float> ephase;
 
-    TIMER_START ("ADIOS_STEP");
+    TIMER_START("ADIOS_STEP");
     adios2::StepStatus status = reader.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
@@ -145,9 +145,9 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 reader.Get<float>(var_edw, _edw);
                 reader.Get<float>(var_iphase, _iphase);
                 reader.Get<float>(var_ephase, _ephase);
-                TIMER_START ("ADIOS_PERFORM_GETS");
+                TIMER_START("ADIOS_PERFORM_GETS");
                 reader.PerformGets();
-                TIMER_STOP ("ADIOS_PERFORM_GETS");
+                TIMER_STOP("ADIOS_PERFORM_GETS");
 
                 igid.insert(igid.end(), _igid.begin(), _igid.end());
                 egid.insert(egid.end(), _egid.begin(), _egid.end());
@@ -161,11 +161,11 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
             }
         }
+        reader.EndStep();
     }
-    reader.EndStep();
-    TIMER_STOP ("ADIOS_STEP");
+    TIMER_STOP("ADIOS_STEP");
 
-    TIMER_START ("LOAD_DATA_GATHER");
+    TIMER_START("LOAD_DATA_GATHER");
     if (status == adios2::StepStatus::OK)
     {
 
@@ -396,8 +396,8 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             }
         }
     }
-    TIMER_STOP ("LOAD_DATA_GATHER");
-    
-    TIMER_STOP ("LOAD_DATA");
+    TIMER_STOP("LOAD_DATA_GATHER");
+
+    TIMER_STOP("LOAD_DATA");
     return status;
 }

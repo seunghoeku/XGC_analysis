@@ -87,11 +87,11 @@ int main(int argc, char *argv[])
 
     adios2::ADIOS *ad = new adios2::ADIOS("adios2cfg.xml", comm);
 
-    // run actual routine
 #ifdef CAM_TIMERS
-    GPTLinitialize ();
+    GPTLinitialize();
 #endif
-    TIMER_START ("TOTAL");
+    // run actual routine
+    TIMER_START("TOTAL");
     heatload_init(ad, comm, xgcdir, !freshstart);
     int istep = 1;
     while (1)
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     }
 
     heatload_finalize();
-    TIMER_STOP ("TOTAL");
+    TIMER_STOP("TOTAL");
 #ifdef CAM_TIMERS
     std::string fname = boost::str(boost::format("heatload-timing.%d") % rank);
     GPTLpr_file(fname.c_str());
