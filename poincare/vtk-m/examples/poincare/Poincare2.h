@@ -8,6 +8,7 @@
 #include <vtkm/worklet/WorkletMapField.h>
 
 #include "XGCParameters.h"
+#include <iomanip>
 
 using Ray3f = vtkm::Ray<vtkm::FloatDefault, 3, true>;
 
@@ -171,7 +172,16 @@ public:
 
     //Get the coeffcients (z,r,4,4)
     vtkm::Matrix<vtkm::FloatDefault, 4, 4> acoeff;
-    vtkm::Id offset = (r_i * this->ncoeff + z_i) * 16;
+    //vtkm::Id offset = (r_i * this->ncoeff + z_i) * 16; //DRP
+    vtkm::Id offset = (z_i * ncoeff + r_i) * 16;
+
+    /*
+    std::cout<<"InterpolatePsi: "<<vtkm::Vec2f(R,Z)<<std::endl;
+    std::cout<<"  i/j= "<<r_i<<" "<<z_i<<std::endl;
+    std::cout<<"  ncoeff= "<<ncoeff<<std::endl;
+    std::cout<<"  offset= "<<offset<<std::endl;
+    std::cout<<"  Rc/Zc= "<<Rc<<" "<<Zc<<std::endl;
+    */
 
     vtkm::FloatDefault psi, dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
     //this->eval_bicub_2(R, Z, Rc, Zc, acoeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
@@ -211,8 +221,9 @@ public:
     //Get the coeffcients (z,r,4,4)
     vtkm::Matrix<vtkm::FloatDefault, 4, 4> acoeff;
     //offset = ri * nz + zi
-    vtkm::Id offset = (r_i * this->ncoeff + z_i) * 16;
-    //offset = (z_i * this->ncoeff + r_i)*16;
+    //vtkm::Id offset = (r_i * this->ncoeff + z_i) * 16; //DRP
+    vtkm::Id offset = (z_i * ncoeff + r_i) * 16;
+
 #if 0
     vtkm::Id idx = 0;
     //std::cout<<"Offset= "<<(offset/16)<<" 16: "<<offset<<std::endl;
@@ -223,6 +234,13 @@ public:
         idx++;
       }
 #endif
+
+    /*
+    std::cout<<"  i/j= "<<r_i<<" "<<z_i<<std::endl;
+    std::cout<<"  ncoeff= "<<ncoeff<<std::endl;
+    std::cout<<"  offset= "<<offset<<std::endl;
+    std::cout<<"  Rc/Zc= "<<Rc<<" "<<Zc<<std::endl;
+    */
 
     vtkm::FloatDefault psi, dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
     //this->eval_bicub_2(R, Z, Rc, Zc, acoeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
@@ -351,7 +369,7 @@ public:
     //Check divergence.
     auto divergence = dBr_dr + Br/R + dBz_dz;
 #ifdef VTKM_USE_DOUBLE_PRECISION
-    static const vtkm::FloatDefault divEps = 1e-16;
+    static const vtkm::FloatDefault divEps = 1e-12;
 #else
     static const vtkm::FloatDefault divEps = 1e-8;
 #endif
@@ -396,6 +414,37 @@ public:
     DBG("Begin: "<<particle<<std::endl);
 
     ParticleInfo pInfo;
+
+    if (this->ValidateInterpolation)
+    {
+      vtkm::Id numPts = coords.GetNumberOfValues();
+
+      const vtkm::FloatDefault epsPsi = 1e-13, epsB0 = 1e-12;
+      for (vtkm::Id i = 0; i < numPts; i += this->ValidateInterpolationSkip)
+      {
+        auto ptRZ = coords.Get(i);
+        vtkm::Vec3f ptRPZ(ptRZ[0], 0, ptRZ[1]);
+        this->HighOrderB(ptRPZ, pInfo, Coeff_1D, Coeff_2D);
+
+        //Compare interpolated values at nodes to the array values.
+        //The values in the array are computed by XGC.
+        auto dPsi = vtkm::Abs(pInfo.Psi - Psi.Get(i));
+        auto dB0 = vtkm::Magnitude(pInfo.B0_rzp - B_RZP.Get(i));
+        if (dPsi > epsPsi)
+        {
+          printf("%lld: Psi difference detected. Error= %16.15lf\n", i, dPsi);
+          printf("    Vals= %16.15lf %16.15lf\n", pInfo.Psi, Psi.Get(i));
+        }
+        if (dB0 > epsB0)
+        {
+          printf("%lld: B0 difference detected. Error= %16.15lf\n", i, dB0);
+          printf("   Vals= (%16.15lf, %16.15lf, %16.15lf)\n", pInfo.B0_rzp[0], pInfo.B0_rzp[1], pInfo.B0_rzp[2]);
+          printf("   Vals= (%16.15lf, %16.15lf, %16.15lf)\n", B_RZP.Get(i)[0], B_RZP.Get(i)[1], B_RZP.Get(i)[2]);
+        }
+      }
+
+      return;
+    }
 
     while (true)
     {
@@ -460,14 +509,14 @@ public:
       if (particle.NumSteps >= this->MaxIter || particle.NumPunctures >= this->MaxPunc)
       {
 #if !defined(VTKM_CUDA) && !defined(VTKM_HIP)
-        std::cout<<"************************************* All done: "<<particle<<std::endl;
+        std::cout<<"************************************* All done: id= "<<particle.ID<<" #Punc= "<<particle.NumPunctures<<std::endl;
 #endif
         break;
       }
     }
 
 #if !defined(VTKM_CUDA) && !defined(VTKM_HIP)
-    std::cout<<"Particle done: "<<idx<<std::endl;
+    //std::cout<<"Particle done: "<<idx<<" "<<particle<<std::endl;
 #endif
 
 #ifdef VALGRIND
@@ -520,7 +569,7 @@ public:
 
     if (!(v1&&v2&&v3&&v4))
     {
-      printf("RK4 step failed\n");
+      //printf("RK4 step failed\n");
       return false;
     }
 
@@ -817,7 +866,7 @@ public:
     vtkm::ErrorCode status = locator.FindCell(ptRZ, cellId, param, pInfo.PrevCell);
     if (status != vtkm::ErrorCode::Success)
     {
-      printf("Find Cell failed! pt= %lf %lf %lf\n", ptRZ[0], ptRZ[1], ptRZ[2]);
+      //printf("Find Cell failed! pt= %lf %lf %lf\n", ptRZ[0], ptRZ[1], ptRZ[2]);
       return false;
     }
 
@@ -848,11 +897,10 @@ public:
                const vtkm::FloatDefault& xmin,
                const vtkm::FloatDefault& dx_inv) const
   {
-    //std::cout<<"GetIndex: "<<x<<" "<<nx<<" min= "<<xmin<<" dx_inv "<<dx_inv<<std::endl;
-    //return std::max(0, std::min(nx-1, (int)((x-xmin)*dx_inv)) );
-    //return std::max(0, std::min(nx-1,    (int)((x-xmin)*dx_inv)) );
-    int idx = std::max(1, std::min(nx  , 1 + int ((x-xmin)*dx_inv)) );
-    return idx-1;
+    int idx = std::max(0, std::min(nx-1,
+                                   int((x-xmin)*dx_inv)) );
+    return idx;
+
   }
 
   template <typename Coeff_2DType>
@@ -880,6 +928,15 @@ public:
     vtkm::FloatDefault dfx2[4] = {0,0,0,0};
     vtkm::FloatDefault dfy2[4] = {0,0,0,0};
 
+    /*
+    for (int j = 0; j < 4; j++)
+    {
+      std::cout<<"acoeff_"<<j<<": ";
+      for (int i = 0; i < 4; i++)
+        std::cout<<Coeff_2D.Get(offset + j*4 + i)<<" ";
+      std::cout<<std::endl;
+    }
+    */
 
     for (int j=0; j<4; j++)
     {
@@ -1253,7 +1310,9 @@ public:
     vtkm::Vec3f x_ff_param;
     vtkm::Vec<vtkm::Id,3> x_ff_vids;
 
-    this->PtLoc(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
+    if (!this->PtLoc(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids))
+      return false;
+
     //this->PtLoc2(x_ff_rzp, pInfo, locator, cellSet, coords, x_ff_param, x_ff_vids);
     auto dAs_ff0_rzp = this->EvalV(DAsPhiFF_RZP, offsets[0], x_ff_param, x_ff_vids);
     auto dAs_ff1_rzp = this->EvalV(DAsPhiFF_RZP, offsets[1], x_ff_param, x_ff_vids);
@@ -1296,6 +1355,8 @@ public:
 
     deltaB_rzp[2] /= R;
     pInfo.B0_rzp[2] /= R;
+
+    //std::cout<<"Evaluate: "<<ptRPZ<<" : psi= "<<pInfo.Psi<<" B0= "<<pInfo.B0_rzp<<std::endl;
 
     vtkm::Vec3f vec_rzp = pInfo.B0_rzp + deltaB_rzp;
     vtkm::Vec3f vec_rpz(vec_rzp[0], vec_rzp[2], vec_rzp[1]);
@@ -1357,6 +1418,9 @@ public:
   vtkm::FloatDefault min_psi, max_psi;
   vtkm::FloatDefault one_d_cub_dpsi_inv;
   vtkm::FloatDefault sml_bp_sign = -1.0f;
+
+  bool ValidateInterpolation = false;
+  vtkm::Id ValidateInterpolationSkip = 1;
 };
 
 #endif

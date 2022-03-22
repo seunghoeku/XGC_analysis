@@ -11,11 +11,7 @@ void
 RunPoincare2(const vtkm::cont::DataSet& ds,
              vtkm::cont::ArrayHandle<vtkm::Particle>& seeds,
              XGCParameters& xgcParams,
-             vtkm::FloatDefault& stepSize,
-             vtkm::Id& numPunc,
-             bool useBOnly,
-             bool useTraces,
-             bool useLinearB,
+             std::map<std::string, std::vector<std::string>>& args,
              const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& As_ff,
              const vtkm::cont::ArrayHandle<vtkm::Vec3f>& dAs_ff_rzp,
              const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& coeff_1D,
@@ -26,7 +22,5 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
              vtkm::cont::ArrayHandle<vtkm::Vec2f>& outRZ,
              vtkm::cont::ArrayHandle<vtkm::Vec2f>& outTP,
              vtkm::cont::ArrayHandle<vtkm::Id>& outID);
-
-
 
 #endif

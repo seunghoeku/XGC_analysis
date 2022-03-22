@@ -46,4 +46,10 @@ jsrun -n1 -a1 -c20 -g1 ./examples/poincare/Poincare  --vField B --dir ../data/XG
 
 Note: this uses --useLinearB while I fix the issue with interpolation.
 
+Running on whoopingcough:
+
+./examples/poincare/Poincare --dir /media/dpn/disk2TB/proj/vtkm/XGCLocator/data/XGC_GB/su458_ITER_data --useHighOrder --turbulence 1 --openmp  --output OUT --numPunc 100 --gpuParams 256 128 --stepSize 0.01 --dumpSeeds --parseAdios xgc.particle.0000000.init.bp 1 |tee out
+
+
+
 ```

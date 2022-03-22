@@ -8,11 +8,19 @@
 //  PURPOSE.  See the above copyright notice for more information.
 //============================================================================
 
+#if 0
+TODO:
+psi = max(0, psi);
+
+#endif
+
 #include <typeinfo>
 #include <iomanip>
 #include <vtkm/cont/Initialize.h>
-#include <vtkm/cont/ArrayCopy.h>
 #include <vtkm/cont/ArrayHandle.h>
+#include <vtkm/cont/ArrayHandleConstant.h>
+#include <vtkm/cont/ArrayCopy.h>
+
 #include <vtkm/cont/DataSet.h>
 #include <vtkm/Particle.h>
 #include <vtkm/cont/DataSetBuilderUniform.h>
@@ -347,7 +355,8 @@ ReadPsiInterp(adiosS* eqStuff,
       for (int k = 0; k < 4; k++)
         for (int m = 0; m < 4; m++)
         {
-          arr_coeff2D[idx] = coef2D[i][j][k][m];
+          //arr_coeff2D[idx] = coef2D[i][j][k][m];
+          arr_coeff2D[idx] = coef2D[i][j][m][k];
           idx++;
         }
 
@@ -388,20 +397,17 @@ ReadPsiInterp(adiosS* eqStuff,
     auto ds2D = vtkm::cont::DataSetBuilderUniform::Create(vtkm::Id2(xgcParams.eq_mr, xgcParams.eq_mr),
                                                           origin2D, spacing2D);
 
-    std::vector<vtkm::FloatDefault> c00;
     std::vector<std::vector<std::vector<vtkm::FloatDefault>>> cij(4);
     for (int k = 0; k < 4; k++) cij[k].resize(4);
 
     for (int i = 0; i < nz; i++)
       for (int j = 0; j < nr; j++)
       {
-        c00.push_back(coeff_2D[i][j][0][0]);
         for (int k = 0; k < 4; k++)
           for (int m = 0; m < 4; m++)
             cij[k][m].push_back(coeff_2D[i][j][k][m]);
       }
 
-    //ds2D.AddPointField("c00", c00);
     for (int k = 0; k < 4; k++)
     {
       for (int m = 0; m < 4; m++)
@@ -413,8 +419,6 @@ ReadPsiInterp(adiosS* eqStuff,
       }
     }
 
-    //ds2D.AddCellField("bum", cij[0][0]);
-    //ds.PrintSummary(std::cout);
     vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
     vtkm::cont::ArrayHandle<vtkm::Vec3f> b3d;
     ds.GetField("eq_psi_rz").GetData().AsArrayHandle(arr);
@@ -700,25 +704,6 @@ Poincare(const vtkm::cont::DataSet& ds,
          std::map<std::string, std::vector<std::string>>& args,
          int timeStep=0)
 {
-
-  //Get the arguments.
-  vtkm::FloatDefault stepSize = std::atof(args["--stepSize"][0].c_str());
-  vtkm::Id numPunc = std::atoi(args["--numPunc"][0].c_str());
-
-  bool useTraces = false;
-  if (args.find("--traces") != args.end()) useTraces = std::atoi(args["--traces"][0].c_str());
-  std::string outFileName = args["--output"][0];
-  bool useBOnly = false;
-  if (args.find("--useBOnly") != args.end()) useBOnly = true;
-  bool useLinearB = false;
-  if (args.find("--useLinearB") != args.end()) useLinearB = true;
-
-  if (useLinearB)
-  {
-    useBOnly = true;
-    std::cout<<"Warning: Using linear B, forcing UseBOnly = true."<<std::endl;
-  }
-
   vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_ff, coeff_1D, coeff_2D, psi;
   vtkm::cont::ArrayHandle<vtkm::Vec3f> B_rzp, B_Norm_rzp, dAs_ff_rzp;
   //ds.GetField("As_phi_ff").GetData().AsArrayHandle(As_ff);
@@ -735,13 +720,15 @@ Poincare(const vtkm::cont::DataSet& ds,
   vtkm::cont::ArrayHandle<vtkm::Id> outID;
   vtkm::Id nSeeds = seeds.GetNumberOfValues();
 
+  vtkm::Id numPunc = std::atoi(args["--numPunc"][0].c_str());
+  vtkm::cont::ArrayHandleConstant<vtkm::Id> initIds(-1, numPunc*nSeeds);
   outRZ.Allocate(numPunc*nSeeds);
   outTP.Allocate(numPunc*nSeeds);
   outID.Allocate(numPunc*nSeeds);
+  vtkm::cont::ArrayCopy(initIds, outID);
 
   auto start = std::chrono::steady_clock::now();
-  RunPoincare2(ds, seeds, xgcParams,
-               stepSize, numPunc, useBOnly, useTraces, useLinearB,
+  RunPoincare2(ds, seeds, xgcParams, args,
                As_ff, dAs_ff_rzp, coeff_1D, coeff_2D,
                B_rzp, psi,
                tracesArr, outRZ, outTP, outID);
@@ -754,13 +741,13 @@ Poincare(const vtkm::cont::DataSet& ds,
   std::cout<<"outputRZ.size()= "<<outRZ.GetNumberOfValues()<<std::endl;
   std::cout<<"outputTP.size()= "<<outTP.GetNumberOfValues()<<std::endl;
   std::cout<<"punctureID.size()= "<<outID.GetNumberOfValues()<<std::endl;
-  //vtkm::cont::printSummary_ArrayHandle(output, std::cout);
-  //vtkm::cont::printSummary_ArrayHandle(punctureID, std::cout);
 
   //Save output
   std::vector<std::vector<vtkm::Vec3f>> traces;
 
   std::vector<std::vector<vtkm::Vec3f>> res;
+  bool useTraces = false;
+  if (args.find("--traces") != args.end()) useTraces = std::atoi(args["--traces"][0].c_str());
   if (useTraces)
   {
     auto portal = tracesArr.ReadPortal();
@@ -773,6 +760,7 @@ Poincare(const vtkm::cont::DataSet& ds,
     }
   }
 
+  std::string outFileName = args["--output"][0];
   SaveOutput(traces, outRZ, outTP, outID, outFileName, timeStep);
 }
 
@@ -1032,11 +1020,18 @@ ReadStaticData(std::map<std::string, std::vector<std::string>>& args,
     if (p > xgcParams.psi_max) xgcParams.psi_max = p;
   }
   std::cout<<"********                  PSI m/M = "<<xgcParams.psi_min<<" "<<xgcParams.psi_max<<std::endl;
+  std::cout<<"********                  PSIN m/M = "<<xgcParams.psi_min*xgcParams.eq_x_psi<<" "<<xgcParams.psi_max*xgcParams.eq_x_psi<<std::endl;
 
   auto ds = ReadMesh(meshStuff, xgcParams);
   ReadPsiInterp(equilStuff, coeffStuff, ds, xgcParams, args);
   ReadScalar(meshStuff, xgcParams, ds, "psi");
   ReadB(bfieldStuff, xgcParams, ds);
+
+  //Add a normalized psi
+  for (auto& psi : psiVals)
+    psi /= xgcParams.eq_x_psi;
+  ds.AddField(vtkm::cont::make_FieldPoint("psiNorm",
+                                          vtkm::cont::make_ArrayHandle(psiVals, vtkm::CopyFlag::On)));
 
   meshStuff->engine.EndStep();
   equilStuff->engine.EndStep();
@@ -1149,35 +1144,40 @@ ReadDataSet_ORIG(std::map<std::string, std::vector<std::string>>& args, XGCParam
 vtkm::cont::DataSet
 ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters& xgcParams)
 {
+  vtkm::cont::DataSet ds;
+
   if (args.find("--test") != args.end())
-    return ReadDataSet_ORIG(args, xgcParams);
+  {
+    ds = ReadDataSet_ORIG(args, xgcParams);
+  }
+  else
+  {
+    std::map<std::string, std::string> adiosArgs;
+    adiosArgs["--dir"] = args["--dir"][0];
 
-  std::map<std::string, std::string> adiosArgs;
-  adiosArgs["--dir"] = args["--dir"][0];
+    ds = ReadStaticData(args, xgcParams, "xgc.poincare_init.bp");
+    adiosStuff["data"] = new adiosS(adios, "xgc.3d.bp", "3d", adiosArgs);
 
-  auto ds = ReadStaticData(args, xgcParams, "xgc.poincare_init.bp");
-  adiosStuff["data"] = new adiosS(adios, "xgc.3d.bp", "3d", adiosArgs);
+    auto dataStuff = adiosStuff["data"];
+    dataStuff->engine.BeginStep();
+    dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
 
-  auto dataStuff = adiosStuff["data"];
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_arr, dAs_arr;
+    ReadTurbData(dataStuff, args, As_arr, dAs_arr);
+    dataStuff->engine.EndStep();
 
-  //Go to 2nd step.
-//  dataStuff->engine.BeginStep();
-//  dataStuff->engine.EndStep();
+    auto As = CalcAs(As_arr, xgcParams);
+    auto dAs = Calc_dAs(dAs_arr, xgcParams);
+    UpdateField(ds, "As_ff", As);
+    UpdateField(ds, "dAs_ff_rzp", dAs);
+  }
 
-  dataStuff->engine.BeginStep();
-  dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
-
-  vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_arr, dAs_arr;
-  ReadTurbData(dataStuff, args, As_arr, dAs_arr);
-  dataStuff->engine.EndStep();
-
-  auto As = CalcAs(As_arr, xgcParams);
-  auto dAs = Calc_dAs(dAs_arr, xgcParams);
-
-  //CalcAs(ds, xgcParams);
-  //Calc_dAs(ds, xgcParams);
-  UpdateField(ds, "As_ff", As);
-  UpdateField(ds, "dAs_ff_rzp", dAs);
+  if (args.find("--dumpGrid") != args.end())
+  {
+    ds.PrintSummary(std::cout);
+    vtkm::io::VTKDataSetWriter writer("grid.vtk");
+    writer.WriteDataSet(ds);
+  }
 
   return ds;
 
@@ -1276,6 +1276,40 @@ mySchedParams(char const* name,
 }
 #endif
 
+template <typename Coeff_1DType>
+VTKM_EXEC
+vtkm::FloatDefault I_interpol(const vtkm::FloatDefault& psi,
+                              const int& ideriv,
+                              const vtkm::FloatDefault& one_d_cub_dpsi_inv,
+                              const vtkm::Id& ncoeff,
+                              const Coeff_1DType& coeff_1D)
+{
+  vtkm::FloatDefault pn = psi * one_d_cub_dpsi_inv;
+  int ip=floor(pn);
+  ip=std::min(std::max(ip,0), int(ncoeff-1));
+  vtkm::FloatDefault wp=pn-(vtkm::FloatDefault)(ip);
+
+  int idx = ip*4;
+
+  //vtkm::FloatDefault acoef[4];
+  //acoef[0] = one_d_cub_acoef(ip).coeff[0];
+  //acoef[1] = one_d_cub_acoef(ip).coeff[1];
+  //acoef[2] = one_d_cub_acoef(ip).coeff[2];
+  //acoef[3] = one_d_cub_acoef(ip).coeff[3];
+
+  const vtkm::FloatDefault acoef[4] = {coeff_1D.Get(idx+0),
+                                       coeff_1D.Get(idx+1),
+                                       coeff_1D.Get(idx+2),
+                                       coeff_1D.Get(idx+3)};
+
+  vtkm::FloatDefault iVal = 0.0;
+  if (ideriv==0)
+    iVal = acoef[0]+(acoef[1]+(acoef[2]+acoef[3]*wp)*wp)*wp;
+  else if (ideriv==1)
+    iVal = (acoef[1]+(2.0*acoef[2]+3.0*acoef[3]*wp)*wp)*one_d_cub_dpsi_inv;
+
+  return iVal; // * this->sml_bp_sign; = -1 !!
+}
 
 template <typename Coeff_2DType>
 VTKM_EXEC
@@ -1287,6 +1321,8 @@ void EvalBicub2(const vtkm::FloatDefault& x,
                 const Coeff_2DType& Coeff_2D,
                 vtkm::FloatDefault &f00, vtkm::FloatDefault &f10, vtkm::FloatDefault &f01,
                 vtkm::FloatDefault &f11, vtkm::FloatDefault &f20, vtkm::FloatDefault &f02)
+//Br= -dpsi_dz / R == f01 / R : fx, dfy
+//Bz = dpsi_dr /R  == f10 / R : dfx, yv
 {
   vtkm::FloatDefault dx = x - xc;
   vtkm::FloatDefault dy = y - yc;
@@ -1302,6 +1338,22 @@ void EvalBicub2(const vtkm::FloatDefault& x,
   vtkm::FloatDefault dfx2[4] = {0,0,0,0};
   vtkm::FloatDefault dfy2[4] = {0,0,0,0};
 
+/*
+  for (int j = 0; j < 4; j++)
+  {
+    std::cout<<"acoeff_"<<j<<": ";
+    for (int i = 0; i < 4; i++)
+      std::cout<<Coeff_2D.Get(offset + j*4 + i)<<" ";
+    std::cout<<std::endl;
+  }
+*/
+
+  /*
+  std::cout<<"\n\nCoeff_2D offset="<<offset<<std::endl;
+  int N = Coeff_2D.GetNumberOfValues();
+  for (int i = 0; i < N; i++)
+    std::cout<<std::setprecision(15)<<i<<": "<<Coeff_2D.Get(i)<<std::endl;
+  */
 
   for (int j=0; j<4; j++)
   {
@@ -1312,6 +1364,7 @@ void EvalBicub2(const vtkm::FloatDefault& x,
     for (int i=2; i<4; i++)
       dfx2[j] = dfx2[j] + vtkm::FloatDefault(i*(i-1))*xv[i-2]*Coeff_2D.Get(offset + i*4 + j); //acoeff[i][j];
   }
+  //std::cout<<std::setprecision(15)<<"fx= "<<fx[0]<<" "<<fx[1]<<" "<<fx[2]<<" "<<fx[3]<<std::endl;
 
   for (int j = 0; j < 4; j++)
   {
@@ -1339,8 +1392,13 @@ int GetIndex(const vtkm::FloatDefault& x,
              const vtkm::FloatDefault& xmin,
              const vtkm::FloatDefault& dx_inv)
 {
-  int idx = std::max(1, std::min(nx  , 1 + int ((x-xmin)*dx_inv)) );
-  return idx-1;
+  //int idx = std::max(1, std::min(nx  , 1 + int ((x-xmin)*dx_inv)) );
+  //return idx-1;
+
+  std::cout<<"GetIndex: "<<x<<" "<<nx<<" "<<xmin<<" "<<dx_inv<<std::endl;
+  int idx = std::max(0, std::min(nx-1,
+                                 int((x-xmin)*dx_inv)) );
+  return idx;
 }
 
 
@@ -1351,46 +1409,132 @@ InterpolatePsi(const vtkm::Vec2f& ptRZ,
                const vtkm::Id& ncoeff,
                const vtkm::Id2& nrz,
                const vtkm::Vec2f& rzmin,
-               const vtkm::Vec2f& drz)
+               const vtkm::Vec2f& drz,
+               const XGCParameters& /*xgcParams*/,
+               vtkm::Vec3f& B0)
 {
   vtkm::FloatDefault psi = 0;
+  /*
+  std::vector<double> eq_rgrid, eq_zgrid, rc_cub, zc_cub;
+  double dr = (xgcParams.eq_max_r - xgcParams.eq_min_r) / double(xgcParams.eq_mr-1);
+  double dz = (xgcParams.eq_max_z - xgcParams.eq_min_z) / double(xgcParams.eq_mz-1);
+  for (int i = 0; i < xgcParams.eq_mr; i++)
+  {
+    double v = xgcParams.eq_min_r + dr * double(i);
+    eq_rgrid.push_back(v);
+  }
+  for (int i = 0; i < xgcParams.eq_mz; i++)
+  {
+    double v = xgcParams.eq_min_z + dz * double(i);
+    eq_zgrid.push_back(v);
+  }
+
+  for (int i = 0; i < xgcParams.eq_mr-1; i++)
+    rc_cub.push_back((eq_rgrid[i] + eq_rgrid[i+1])/2.0);
+  for (int i = 0; i < xgcParams.eq_mz-1; i++)
+    zc_cub.push_back((eq_zgrid[i] + eq_zgrid[i+1])/2.0);
+  */
 
   int r_i = GetIndex(ptRZ[0], nrz[0], rzmin[0], 1.0/drz[0]);
   int z_i = GetIndex(ptRZ[1], nrz[1], rzmin[1], 1.0/drz[1]);
   vtkm::FloatDefault Rc = rzmin[0] + (vtkm::FloatDefault)(r_i)*drz[0];
   vtkm::FloatDefault Zc = rzmin[1] + (vtkm::FloatDefault)(z_i)*drz[1];
+  //auto rc2 = rc_cub[r_i];
+  //auto zc2 = zc_cub[z_i];
+
   auto Rc_1 = Rc + drz[0];
   auto Zc_1 = Zc + drz[1];
   Rc = (Rc + Rc_1) * 0.5;
   Zc = (Zc + Zc_1) * 0.5;
 
-  vtkm::Id offset = (r_i * ncoeff + z_i) * 16;
+  //vtkm::Id offset = (r_i * ncoeff + z_i) * 16; //DRP
+  vtkm::Id offset = (z_i * ncoeff + r_i) * 16;
+
+  std::cout<<"InterpolatePsi: "<<ptRZ<<std::endl;
+  std::cout<<"  i/j= "<<r_i<<" "<<z_i<<std::endl;
+  std::cout<<"  ncoeff= "<<ncoeff<<std::endl;
+  std::cout<<"  offset= "<<offset<<std::endl;
+  std::cout<<"  Rc/Zc= "<<Rc<<" "<<Zc<<std::endl;
 
   vtkm::FloatDefault dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
   EvalBicub2(ptRZ[0], ptRZ[1], Rc, Zc, offset, coeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
 
+  auto R = ptRZ[0];
+  B0[0] = -dpsi_dz / R;
+  B0[1] = dpsi_dr / R;
+  B0[2] = 0;
+
+  /*
+  std::cout<<" psi= "<<psi<<std::endl;
+  std::cout<<" dPsi_d= "<<dpsi_dr<<" "<<dpsi_dz<<std::endl;
+  std::cout<<" d2Psi_d= "<<d2psi_drdz<<" "<<d2psi_d2r<<" "<<d2psi_d2z<<std::endl;
+  */
+
+  if (psi < 0) //DRP
+    psi = 0;
+
   return psi;
 }
 
+template <typename CoeffType>
+vtkm::FloatDefault
+InterpolatePsi(const vtkm::Vec2f& ptRZ,
+               const CoeffType& coeff,
+               const vtkm::Id& ncoeff,
+               const vtkm::Id2& nrz,
+               const vtkm::Vec2f& rzmin,
+               const vtkm::Vec2f& drz,
+               const XGCParameters& xgcParams)
+{
+  vtkm::Vec3f B0;
+  return InterpolatePsi(ptRZ, coeff, ncoeff, nrz, rzmin, drz, xgcParams, B0);
+}
+
 std::vector<vtkm::Particle>
-GeneratePsiRangeSeeds(vtkm::FloatDefault psiNorm0,
-                      vtkm::FloatDefault psiNorm1,
-                      int numPts,
-                      int numTheta,
+GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
                       const vtkm::cont::DataSet& ds,
                       XGCParameters& xgcParams)
 
 {
   std::vector<vtkm::Particle> seeds;
 
-  vtkm::cont::ArrayHandle<vtkm::FloatDefault> maxR, thetas;
-  FindMaxR(ds, xgcParams, numTheta, thetas, maxR);
+  std::vector<std::string> vals;
+  std::vector<vtkm::FloatDefault> thetas;
+
+  if (args.find("--psiRange") != args.end())
+  {
+    vals = args["--psiRange"];
+    int numTheta = std::atoi(vals[3].c_str());
+    std::vector<vtkm::FloatDefault> t;
+    vtkm::FloatDefault dTheta = vtkm::TwoPi() / static_cast<vtkm::FloatDefault>(numTheta);
+
+    for (int i = 0; i < numTheta; i++)
+      thetas.push_back(static_cast<vtkm::FloatDefault>(i) * dTheta);
+  }
+  else
+  {
+    vals = args["--psiThetaRange"];
+
+    const vtkm::FloatDefault degToRad = vtkm::Pi()/180.0;
+    for (std::size_t i = 3; i < vals.size(); i++)
+    {
+      vtkm::FloatDefault deg = std::atof(vals[i].c_str());
+      thetas.push_back(deg * degToRad);
+    }
+  }
+
+  vtkm::FloatDefault psiNorm0 = std::atof(vals[0].c_str());
+  vtkm::FloatDefault psiNorm1 = std::atof(vals[1].c_str());
+  int numPts = std::atoi(vals[2].c_str());
+
+
+  vtkm::cont::ArrayHandle<vtkm::FloatDefault> maxR;
+  FindMaxR(ds, xgcParams, thetas, maxR);
 
   vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
   ds.GetField("coeff_2D").GetData().AsArrayHandle(arr);
   auto coeff = arr.ReadPortal();
 
-  auto thetaPortal = thetas.ReadPortal();
   auto maxRPortal = maxR.ReadPortal();
   vtkm::Id ncoeff = xgcParams.eq_mr-1;
   vtkm::Id2 nrz(xgcParams.eq_mr, xgcParams.eq_mz);
@@ -1400,37 +1544,177 @@ GeneratePsiRangeSeeds(vtkm::FloatDefault psiNorm0,
 
   auto psiMin = psiNorm0 * xgcParams.eq_x_psi, psiMax = psiNorm1 * xgcParams.eq_x_psi;
   auto dPsi = (psiMax-psiMin) / static_cast<vtkm::FloatDefault>(numPts-1);
-  auto psi = psiMin;
 
+  const vtkm::FloatDefault dR = 0.005;
+  for (std::size_t i = 0; i < thetas.size(); i++)
+  {
+    auto theta = thetas[i];
+    auto cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
+
+    std::cout<<"Theta_"<<i<<" = "<<theta<<" psiN: "<<psiNorm0<<" "<<psiNorm1<<std::endl;
+
+    auto psiTarget = psiMin;
+    vtkm::FloatDefault r0 = 0;
+    for (int j = 0; j < numPts; j++)
+    {
+      vtkm::FloatDefault r1 = r0;
+      vtkm::FloatDefault psi = 0;
+
+      std::cout<<" PsiTarget= "<<psiTarget<<std::endl;
+      vtkm::FloatDefault R, Z;
+
+      r1 = r0+dR;
+      bool found = false;
+      while (!found && r1 < maxRPortal.Get(i))
+      {
+        R = xgcParams.eq_axis_r + r1*cost;
+        Z = xgcParams.eq_axis_z + r1*sint;
+        psi = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+        std::cout<<"R: "<<r0<<" "<<r1<<" --> "<<vtkm::Vec2f(R,Z)<<" psi(r1)= "<<std::setprecision(15)<<psi<<std::endl;
+        if (psi >= psiTarget)
+        {
+          found = true;
+          break;
+        }
+
+        r0 += dR;
+        r1 += dR;
+      }
+      if (!found)
+        continue;
+
+/*
+
+      while (true)
+      {
+        r0 = r1;
+        R = xgcParams.eq_axis_r + r0*cost;
+        Z = xgcParams.eq_axis_z + r0*sint;
+        r1 = r0+dR;
+
+        vtkm::Vec2f pt(R, Z);
+        psi = InterpolatePsi(pt, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+        std::cout<<"R: "<<r0<<" "<<r1<<" --> "<<pt<<" psi(r0)= "<<psi<<std::endl;
+        if (psi >= psiTarget)
+          break;
+      }
+*/
+      auto diffPsi = psi - psiTarget;
+      std::cout<<"   Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
+      std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
+
+
+      std::cout<<std::setprecision(15)<<"  psiTarget= "<<psiTarget<<"  psi= "<<psi<<std::endl;
+      //Now, do a binary search to find psi between (r0, r1)
+      int cnt = 0;
+      while (diffPsi > 1e-10 && cnt < 100)
+      {
+        auto rMid = (r0+r1)/2.0;
+        R = xgcParams.eq_axis_r + rMid*cost;
+        Z = xgcParams.eq_axis_z + rMid*sint;
+        auto psiMid = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+
+        if (psiMid < psiTarget) // mid is inside, range = (rmid, r1)
+          r0 = rMid;
+        else
+          r1 = rMid;  //mid is outside, range = (r0, rmid)
+
+        diffPsi = vtkm::Abs(psiMid - psiTarget);
+        std::cout<<std::setprecision(15)<<"        "<<cnt<<":  R=("<<r0<<" "<<r1<<")  psi= "<<std::setprecision(15)<<psi<<" "<<dPsi<<std::endl;
+        cnt++;
+      }
+
+
+
+      std::cout<<"   **** Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
+      std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
+
+      vtkm::Vec3f pt_rpz(R, 0, Z);
+      seeds.push_back({pt_rpz, j});
+
+      psiTarget += dPsi;
+
+/*
+      //auto psi_0 = InterpolatePsi(p0, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+
+      vtkm::FloatDefault psi_i = 0;
+      vtkm::FloatDefault R = xgcParams.eq_axis_r + r*cost;
+      vtkm::FloatDefault Z = xgcParams.eq_axis_z + r*sint;
+      //Iterate by dR to find a window: psi0 > psi <= psi1
+      while (psi_i < psi)
+      {
+        R = xgcParams.eq_axis_r + r*cost;
+        Z = xgcParams.eq_axis_z + r*sint;
+        vtkm::Vec2f pt_i(R, Z);
+        psi_i = InterpolatePsi(pt_i, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+        r += dR;
+      }
+      auto diffPsi = psi - psi_i;
+
+      std::cout<<"   Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi_i /xgcParams.eq_x_psi;
+      std::cout<<std::setprecision(15)<<" diff= "<<diffPsi<<std::endl;
+
+      vtkm::Vec3f pt_rpz(R, 0, Z);
+      seeds.push_back({pt_rpz, j});
+      psi += dPsi;
+      r0 = r;
+*/
+    }
+  }
+  return seeds;
+
+
+#if 0
   for (int i = 0; i < numPts; i++)
   {
-    //std::cout<<"Pt_"<<i<<" = psi= "<<psi<<" psiN= "<<(psi/xgcParams.eq_x_psi)<<std::endl;
+    std::cout<<"Pt_"<<i<<" = psi= "<<psi<<" psiN= "<<(psi/xgcParams.eq_x_psi)<<std::endl;
 
     vtkm::Id pid = static_cast<vtkm::Id>(i);
 
     for (vtkm::Id j = 0; j < thetaPortal.GetNumberOfValues(); j++)
     {
+      if (j != 9) continue;
+
       vtkm::FloatDefault rad0 = 1e-8, rad1 = maxRPortal.Get(j);
       auto theta = thetaPortal.Get(j);
       auto cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
 
-      /*
-      vtkm::Vec2f p0(eq_axis_r + rad0*cost, eq_axis_z + rad0*sint);
-      vtkm::Vec2f p1(eq_axis_r + rad1*cost, eq_axis_z + rad1*sint);
-      auto psi_0 = InterpolatePsi(p0,  coeff, ncoeff, nrz, rzmin, drz);
-      auto psi_1 = InterpolatePsi(p1,  coeff, ncoeff, nrz, rzmin, drz);
-      std::cout<<"  theta= "<<theta<<" rad= "<<rad0<<" "<<rad1<<" psi= "<<psi_0<<" "<<psi_1<<std::endl;
+      vtkm::Vec2f p0(xgcParams.eq_axis_r + rad0*cost, xgcParams.eq_axis_z + rad0*sint);
+      vtkm::Vec2f p1(xgcParams.eq_axis_r + rad1*cost, xgcParams.eq_axis_z + rad1*sint);
+      auto psi_0 = InterpolatePsi(p0, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+      auto psi_1 = InterpolatePsi(p1, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+      auto psiN_0 = psi_0 / xgcParams.eq_x_psi;
+      auto psiN_1 = psi_1 / xgcParams.eq_x_psi;
+      std::cout<<"  Theta_"<<j<<"= "<<theta<<" rad= "<<rad0<<" "<<rad1<<" psi= ("<<psi_0<<" "<<psi_1<<") n= ("<<psiN_0<<" "<<psiN_1<<")"<<std::endl;
       std::cout<<"     p0= "<<p0<<" "<<p1<<std::endl;
       std::cout<<"      c/s = "<<cost<<" "<<sint<<std::endl;
-      */
+
+      //This won't find a solution (point near x point)
+      if (psi_1 < psi)
+      {
+        std::cout<<"********* This will not converge!"<<std::endl;
+        std::cout<<"  MaxR= "<<rad1<<std::endl;
+
+        for (vtkm::FloatDefault r = rad0; r < 2*rad1; r += 0.01)
+        {
+          vtkm::Vec2f pt(xgcParams.eq_axis_r + r*cost, xgcParams.eq_axis_z + r*sint);
+          auto p = InterpolatePsi(p1, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+          std::cout<<std::setprecision(15)<<"    r_i= "<<r<<" psi= "<<p<<" "<<p/xgcParams.eq_x_psi<<" pt= "<<pt<<std::endl;
+
+          vtkm::Vec3f pt_rpz(pt[0], 0, pt[1]);
+          seeds.push_back({pt_rpz, 0});
+        }
+
+        continue;
+      }
 
       do
       {
         vtkm::FloatDefault rmid = (rad0+rad1) / 2.0;
 
         vtkm::Vec2f pt(xgcParams.eq_axis_r + rmid*cost, xgcParams.eq_axis_z + rmid*sint);
-        auto psimid = InterpolatePsi(pt,  coeff, ncoeff, nrz, rzmin, drz);
-        //std::cout<<"     "<<rmid<<" ("<<rad0<<" "<<rad1<<") psimid= "<<psimid<<std::endl;
+        auto psimid = InterpolatePsi(pt,  coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+        std::cout<<"     "<<rmid<<" ("<<rad0<<" "<<rad1<<") psimid= "<<psimid<<" "<<psimid/xgcParams.eq_x_psi<<std::endl;
 
         if (psimid < psi) // mid is inside, set range to (radmid, rad1)
           rad0 = rmid;
@@ -1442,15 +1726,16 @@ GeneratePsiRangeSeeds(vtkm::FloatDefault psiNorm0,
       vtkm::FloatDefault r = (rad0+rad1)/2.0;
       vtkm::Vec3f pt_rpz(xgcParams.eq_axis_r + r*cost, 0, xgcParams.eq_axis_z + r*sint);
       seeds.push_back({pt_rpz, pid});
-      //std::cout<<"   PSI_pt: "<<psi<<" "<<theta<<" id= "<<pid<<std::endl;
+      std::cout<<"   PSI_pt: "<<psi<<" "<<theta<<" id= "<<pid<<std::endl;
 
-      //auto psi_ = InterpolatePsi({pt[0], pt[1]},  coeff, ncoeff, nrz, rzmin, drz);
-      //std::cout<<"   "<<pt<<"  psi= "<<psi_/eq_x_psi<<std::endl;
+      auto psi_ = InterpolatePsi({pt_rpz[0], pt_rpz[2]},  coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+      std::cout<<"   "<<pt_rpz<<"  psiN= "<<psi_/xgcParams.eq_x_psi<<std::endl<<std::endl<<std::endl;
     }
     psi += dPsi;
   }
 
   return seeds;
+#endif
 }
 
 vtkm::cont::ArrayHandle<vtkm::Particle>
@@ -1475,15 +1760,10 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
       seeds.push_back({{r, .1, 0}, id});
     //std::cout<<"SEEDS= "<<seeds<<std::endl;
   }
-  else if (args.find("--psiRange") != args.end())
+  else if (args.find("--psiRange") != args.end() ||
+           args.find("--psiThetaRange") != args.end())
   {
-    auto vals = args["--psiRange"];
-    vtkm::FloatDefault psi0 = std::atof(vals[0].c_str());
-    vtkm::FloatDefault psi1 = std::atof(vals[1].c_str());
-    int numPts = std::atoi(vals[2].c_str());
-    int numTheta = std::atoi(vals[3].c_str());
-
-    seeds = GeneratePsiRangeSeeds(psi0, psi1, numPts, numTheta, ds, xgcParams);
+    seeds = GeneratePsiRangeSeeds(args, ds, xgcParams);
   }
   else if (args.find("--seed") != args.end())
   {
@@ -1549,6 +1829,35 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
       {{3.391834939600261389, 0.0, -0.350011953142094434}, 5}
     };
   }
+  else if (args.find("--parseAdios") != args.end())
+  {
+    auto dir = args["--dir"][0];
+    auto vals = args["--parseAdios"];
+    auto fname = dir + "/" + vals[0];
+    int skip = 1;
+    if (vals.size() > 1)
+      skip = std::atoi(vals[1].c_str());
+
+    std::cout<<"Reading seeds from "<<fname<<" skip= "<<skip<<std::endl;
+
+    auto io = adios2::IO(adios->DeclareIO("seedsIO"));
+    auto engine = io.Open(fname, adios2::Mode::Read);
+
+    auto v = io.InquireVariable<float>("ephase");
+    std::vector<float> tmp;
+    engine.Get(v, tmp, adios2::Mode::Sync);
+    engine.Close();
+
+    int n = tmp.size();
+    int id = 0;
+    for (int i = 0; i < n; i += (9*skip))
+    {
+      auto R = static_cast<vtkm::FloatDefault>(tmp[i + 0]);
+      auto Z = static_cast<vtkm::FloatDefault>(tmp[i + 1]);
+
+      seeds.push_back(vtkm::Particle(vtkm::Vec3f(R, 0.0, Z), id++));
+    }
+  }
   else if (args.find("--parse") != args.end())
   {
     //Generaate the seed list by running jongAll.py
@@ -1569,6 +1878,18 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
       pid++;
     }
   }
+
+  if (args.find("--dumpSeeds") != args.end())
+  {
+    std::ofstream f("seeds.txt", std::ofstream::out);
+    f<<"ID, R, Z, Phi"<<std::endl;
+    f<<std::setprecision(12);
+    for (std::size_t i = 0; i < seeds.size(); i++)
+      f<<seeds[i].ID<<", "<<seeds[i].Pos[0]<<", "<<seeds[i].Pos[2]<<", "<<seeds[i].Pos[1]<<std::endl;
+    f.close();
+  }
+
+  std::cout<<" ****** Num Seeds= "<<seeds.size()<<std::endl;
 
   auto seedsArray = vtkm::cont::make_ArrayHandle(seeds, vtkm::CopyFlag::On);
 
@@ -1614,6 +1935,12 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
     auto dAs = Calc_dAs(dAs_arr, xgcParams);
     UpdateField(ds, "As_ff", As);
     UpdateField(ds, "dAs_ff_rzp", dAs);
+    if (step == 0 && args.find("--dumpGrid") != args.end())
+    {
+      ds.PrintSummary(std::cout);
+      vtkm::io::VTKDataSetWriter writer("grid.vtk");
+      writer.WriteDataSet(ds);
+    }
 
     std::cout<<step<<": Read data timeStep= "<<timeStep<<std::endl;
     dataStuff->engine.EndStep();
@@ -1676,26 +2003,62 @@ main(int argc, char** argv)
   {
     XGCParameters xgcParams;
     auto ds = ReadDataSet(args, xgcParams);
+    auto vals = args["--debug"];
 
-    vtkm::FloatDefault R = std::atof(args["--debug"][0].c_str());
-    vtkm::FloatDefault Z = std::atof(args["--debug"][1].c_str());
+    vtkm::FloatDefault R, Z;
+    if (vals.size() == 1) //point index.
+    {
+      vtkm::Id idx = std::atoi(vals[0].c_str());
+      vtkm::cont::ArrayHandle<vtkm::Vec3f> c;
+      ds.GetCoordinateSystem().GetData().AsArrayHandle(c);
+      R = c.ReadPortal().Get(idx)[0];
+      Z = c.ReadPortal().Get(idx)[1];
+    }
+    else
+    {
+      R = std::atof(vals[0].c_str());
+      Z = std::atof(vals[1].c_str());
+    }
+
     vtkm::Vec3f pt(R,Z,0);
 
-    auto psiLinear = EvalField(pt, ds, "psi2D");
-    std::cout<<"LinearPsi= "<<psiLinear<<std::endl;
+    std::cout<<std::setprecision(15)<<"Debug pt= "<<pt<<std::endl;
+    vtkm::Vec2f ptRZ(R,Z);
+    vtkm::Vec3f B0;
 
     vtkm::cont::ArrayHandle<vtkm::FloatDefault> arr;
     ds.GetField("coeff_2D").GetData().AsArrayHandle(arr);
     auto coeff = arr.ReadPortal();
     vtkm::Id ncoeff = xgcParams.eq_mr-1;
-    vtkm::Id2 nrz(xgcParams.eq_mr, xgcParams.eq_mz);
+    vtkm::Id2 nrz(xgcParams.eq_mr-1, xgcParams.eq_mz-1); //DRP
     vtkm::Vec2f rzmin(xgcParams.eq_min_r, xgcParams.eq_min_z);
     vtkm::Vec2f drz((xgcParams.eq_max_r-xgcParams.eq_min_r)/static_cast<vtkm::FloatDefault>(xgcParams.eq_mr-1),
                     (xgcParams.eq_max_z-xgcParams.eq_min_z)/static_cast<vtkm::FloatDefault>(xgcParams.eq_mz-1));
 
-    vtkm::Vec2f ptRZ(R,Z);
-    auto psiHigh = InterpolatePsi(ptRZ,  coeff, ncoeff, nrz, rzmin, drz);
-    std::cout<<"PsiHigh= "<<psiHigh<<std::endl;
+    auto psiHigh = InterpolatePsi(ptRZ,  coeff, ncoeff, nrz, rzmin, drz, xgcParams, B0);
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> coeff1D;
+    ds.GetField("coeff_1D").GetData().AsArrayHandle(coeff1D);
+
+    vtkm::cont::ArrayHandle<vtkm::FloatDefault> eq_psi_gridArr;
+    ds.GetField("eq_psi_grid").GetData().AsArrayHandle(eq_psi_gridArr);
+    auto dPsi = eq_psi_gridArr.ReadPortal().Get(1)-eq_psi_gridArr.ReadPortal().Get(0);
+    vtkm::FloatDefault one_d_cub_dpsi_inv = 1.0/dPsi;
+    auto Ipsi = I_interpol(psiHigh, 0, one_d_cub_dpsi_inv, ncoeff, coeff1D.ReadPortal());  //rgn=1
+    B0[2] = Ipsi / R;
+
+
+    vtkm::cont::CellLocatorTwoLevel locator2L;
+    locator2L.SetCellSet(ds.GetCellSet());
+    locator2L.SetCoordinates(ds.GetCoordinateSystem());
+    locator2L.Update();
+    auto psiLinear = EvalScalar(pt, locator2L, ds, "psi2D");
+    auto B0Linear = EvalVec(pt, locator2L, ds, "B_RZP");
+
+    std::cout<<std::setprecision(15);
+    std::cout<<"PsiLinear = "<<psiLinear<<" norm: "<<(psiLinear/xgcParams.eq_x_psi)<<std::endl;
+    std::cout<<"PsiHigh   = "<<psiHigh<<" norm: "<<(psiHigh/xgcParams.eq_x_psi)<<std::endl;
+    std::cout<<"B0Linear  = "<<B0Linear<<std::endl;
+    std::cout<<"B0High    = "<<B0<<std::endl;
 
     return 0;
   }
@@ -1733,5 +2096,11 @@ main(int argc, char** argv)
 
 //streaming case
 ./examples/poincare/Poincare  --vField B --dir ../data/XGC_GB/test_GB_small_su455 --traces 0 --useHighOrder --turbulence 1 --psiRange .1 .9 4 2 --openmp  --output bumm --numPunc 500 --gpuParams 256 128 --stepSize 0.05 --useLinearB --streaming xgc.3d.panout.1.bp
+
+
+
+./examples/poincare/Poincare  --vField B --dir ../data/XGC_GB/test_GB_small_su455 --traces 0 --useHighOrder --turbulence 1 --psiRange .1 .7 10 4 --openmp  --output bumm --numPunc 100 --gpuParams 256 128 --stepSize 0.05 --streaming xgc.3d.panout.5.bp --userLinearB
+
+
 
 */
