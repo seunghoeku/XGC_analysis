@@ -106,7 +106,7 @@ if __name__ == "__main__":
                 nstep, nsize = adios2_get_shape(fstep, vname)
                 ndim = len(nsize)
                 start, count = (), ()
-                # print (vname, nstep, ndim, nsize)
+                #print (vname, nstep, ndim, nsize)
 
                 if ndim > 0:
                     x = list()
@@ -122,8 +122,9 @@ if __name__ == "__main__":
                     start, count = list(zip(*z))
 
                 logging.info((istep, vname, nsize, start, count))
-                val = fstep.read(vname, start=start, count=count)
-                varinfo_list.append((vname, nsize, start, count, val))
+                if np.array(count).size >0:
+                    val = fstep.read(vname, start=start, count=count)
+                    varinfo_list.append((vname, nsize, start, count, val))
 
             ## Output
             logging.info(f"Writing: %s" % (fname_list[istep % args.npanout]))
