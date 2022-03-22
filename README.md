@@ -5,9 +5,11 @@ Code for analysis node from XGC particle data
 ```
 module load boost
 
-ADIOS2_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/adios2-nompi/devel/nvhpc \
-CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers/gcc9.1.0 \
-CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH=$CAMTIMER_DIR ..
+ADIOS_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/adios2/devel/gcc9.1.0
+CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers/gcc9.1.0
+
+CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH="$ADIOS_DIR;$CAMTIMER_DIR" ..
+
 ```
 
 # Additional Input files for Gordon Bell
