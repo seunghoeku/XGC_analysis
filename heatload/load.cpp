@@ -10,6 +10,8 @@
 #include <boost/log/utility/setup.hpp>
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
+#include "cam_timers.hpp"
+
 #define NPHASE 11
 #define GET(X, i, j) X[i * NPHASE + j]
 
@@ -47,26 +49,28 @@ void load_finalize()
 // idiv, ediv (local), iesc, eesc (global)
 adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
 {
+    TIMER_START ("LOAD_DATA");
     // Clear vector
     idiv.clear();
     ediv.clear();
     iesc.clear();
     eesc.clear();
 
+    std::vector<long> igid;
+    std::vector<long> egid;
+    std::vector<int> iflag;
+    std::vector<int> eflag;
+    std::vector<int> istep;
+    std::vector<int> estep;
+    std::vector<float> idw;
+    std::vector<float> edw;
+    std::vector<float> iphase;
+    std::vector<float> ephase;
+
+    TIMER_START ("ADIOS_STEP");
     adios2::StepStatus status = reader.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
-        std::vector<long> igid;
-        std::vector<long> egid;
-        std::vector<int> iflag;
-        std::vector<int> eflag;
-        std::vector<int> istep;
-        std::vector<int> estep;
-        std::vector<float> idw;
-        std::vector<float> edw;
-        std::vector<float> iphase;
-        std::vector<float> ephase;
-
         // Inquire variables
         auto var_igid = reader_io.InquireVariable<long>("igid");
         auto var_egid = reader_io.InquireVariable<long>("egid");
@@ -141,7 +145,9 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 reader.Get<float>(var_edw, _edw);
                 reader.Get<float>(var_iphase, _iphase);
                 reader.Get<float>(var_ephase, _ephase);
+                TIMER_START ("ADIOS_PERFORM_GETS");
                 reader.PerformGets();
+                TIMER_STOP ("ADIOS_PERFORM_GETS");
 
                 igid.insert(igid.end(), _igid.begin(), _igid.end());
                 egid.insert(egid.end(), _egid.begin(), _egid.end());
@@ -155,6 +161,13 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
             }
         }
+    }
+    reader.EndStep();
+    TIMER_STOP ("ADIOS_STEP");
+
+    TIMER_START ("LOAD_DATA_GATHER");
+    if (status == adios2::StepStatus::OK)
+    {
 
         assert(iphase.size() / igid.size() == NPHASE);
         assert(ephase.size() / egid.size() == NPHASE);
@@ -382,8 +395,9 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 ediv.push_back(eptl);
             }
         }
-        reader.EndStep();
     }
-
+    TIMER_STOP ("LOAD_DATA_GATHER");
+    
+    TIMER_STOP ("LOAD_DATA");
     return status;
 }

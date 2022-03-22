@@ -3,6 +3,8 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
+#include "cam_timers.hpp"
+
 void init(adios2::ADIOS *ad, std::string xgcdir);                         // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
@@ -17,6 +19,7 @@ int heatload_comm_rank;
 
 void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool read_restart)
 {
+    TIMER_START("INIT");
     // init simulation parameters
     init(ad, xgcdir);
 
@@ -33,6 +36,7 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool re
         ptldb_load(iesc_db, "heatload_iesc_db.bp");
         ptldb_load(eesc_db, "heatload_eesc_db.bp");
     }
+    TIMER_STOP("INIT");
 }
 
 void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
@@ -68,6 +72,7 @@ void test()
 
 int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 {
+    TIMER_START("STEP");
     Particles idiv;
     Particles ediv;
     t_ParticlesList iesc;
@@ -124,11 +129,16 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
     }
     output(ad, ion, elec, heatload_comm);
 
+#ifdef CAM_TIMERS
+    GPTLprint_memusage("STEP MEMUSAGE");
+#endif
+    TIMER_STOP("STEP");
     return 0;
 }
 
 void heatload_finalize()
 {
+    TIMER_START("FINALIZE");
     load_finalize();
     output_finalize(heatload_comm);
 
@@ -137,6 +147,7 @@ void heatload_finalize()
         ptldb_save(iesc_db, "heatload_iesc_db.bp");
         ptldb_save(eesc_db, "heatload_eesc_db.bp");
     }
+    TIMER_STOP("FINALIZE");
 }
 
 void heatload(adios2::ADIOS *ad)
