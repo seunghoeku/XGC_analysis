@@ -26,6 +26,9 @@ class Diffusion
     adios2::IO output_io;
     adios2::Engine writer;
 
+    adios2::IO dup_io;
+    adios2::Engine dup_writer;
+
     MPI_Comm comm;
     int comm_size;
     int rank;

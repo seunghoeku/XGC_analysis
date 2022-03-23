@@ -82,6 +82,10 @@ Diffusion::Diffusion(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
         boost::filesystem::path(this->xgcdir) / boost::filesystem::path("xgc.tracer_diag.bp");
     LOG << "Loading: " << fname;
     this->reader = this->io.Open(fname.string(), adios2::Mode::Read, this->comm);
+
+    this->dup_io = ad->DeclareIO("tracer_diag_dup");
+    this->dup_io.DefineVariable<double>("table", {}, {}, {0, NCOL});
+    this->dup_writer = this->io.Open("xgc.tracer_diag.bp.copy", adios2::Mode::Write, this->comm);
     TIMER_STOP("INIT");
 }
 
@@ -91,6 +95,7 @@ void Diffusion::finalize()
     this->reader.Close();
     if (this->rank == 0)
         this->writer.Close();
+    this->dup_writer.Close();
     TIMER_STOP("FINALIZE");
 }
 
@@ -113,6 +118,7 @@ adios2::StepStatus Diffusion::step()
     TIMER_START("STEP");
     TIMER_START("ADIOS_STEP");
     adios2::StepStatus status = this->reader.BeginStep();
+    this->dup_writer.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
         this->reset();
@@ -145,6 +151,12 @@ adios2::StepStatus Diffusion::step()
                 TIMER_START("ADIOS_PERFORM_GETS");
                 this->reader.PerformGets();
                 TIMER_STOP("ADIOS_PERFORM_GETS");
+
+                TIMER_START("_ADIOS_DUP_WRITE");
+                auto var = this->dup_io.InquireVariable<double>("table");
+                var.SetSelection({{}, block.Count});
+                this->dup_writer.Put<double>("table", table.data(), adios2::Mode::Sync);
+                TIMER_STOP("_ADIOS_DUP_WRITE");
             }
 
             // Process each row:
@@ -184,6 +196,7 @@ adios2::StepStatus Diffusion::step()
             }
         }
         this->reader.EndStep();
+        this->dup_writer.EndStep();
     }
     TIMER_STOP("ADIOS_STEP");
 
