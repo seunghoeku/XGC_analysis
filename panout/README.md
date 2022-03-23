@@ -7,8 +7,9 @@ Below is an example to run on Summit.
 ```
 module load gcc/9.1.0
 
-module use -a /gpfs/alpine/world-shared/csc143/jyc/summit/sw/modulefiles
+module use -a /gpfs/alpine/phy122/world-shared/lib/install/summit/modulefiles
 module load adios2/devel
+module load gptl4py
 
 SRC=/gpfs/alpine/proj-shared/csc143/jyc/summit/test_GB_small_su455/xgc.3d.bp
 
