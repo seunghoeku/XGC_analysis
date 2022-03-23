@@ -7,6 +7,29 @@ import argparse
 import logging
 import itertools
 
+try:
+    import gptl4py as gp
+except ImportError:
+
+    class gp:
+        def initialize():
+            pass
+
+        def finalize():
+            pass
+
+        def start(name):
+            pass
+
+        def stop(name):
+            pass
+
+        def pr_file(filename):
+            pass
+
+        def pr_summary_file(filename):
+            pass
+
 
 def split(nsize, nchunk, i):
     assert i < nchunk
@@ -83,6 +106,8 @@ if __name__ == "__main__":
         writer = io.Open(fname, ad2.Mode.Write, comm)
         writer_list.append((io, writer))
 
+    gp.initialize()
+    gp.start("TOTAL")
     with ad2.open(
         args.infile,
         "r",
@@ -95,6 +120,8 @@ if __name__ == "__main__":
             if (istep < args.start) or (istep >= args.start + args.nstep):
                 continue
 
+            gp.start("STEP")
+            gp.start("ADIOS_STEP")
             var_list = list()
             varinfo_list = list()
             if args.var is None:
@@ -123,8 +150,11 @@ if __name__ == "__main__":
 
                 logging.info((istep, vname, nsize, start, count))
                 if np.array(count).size > 0:
+                    gp.start("ADIOS_PERFORM_GETS")
                     val = fstep.read(vname, start=start, count=count)
+                    gp.stop("ADIOS_PERFORM_GETS")
                     varinfo_list.append((vname, nsize, start, count, val))
+            gp.stop("ADIOS_STEP")
 
             ## Output
             logging.info(f"Writing: %s" % (fname_list[istep % args.npanout]))
@@ -135,12 +165,20 @@ if __name__ == "__main__":
                 define_variables(io, varinfo_list)
 
             ## Write a step
+            gp.start("ADIOS_WRITE")
             writer.BeginStep()
             for vname, shape, start, count, val in varinfo_list:
                 var = io.InquireVariable(vname)
                 writer.Put(var, val)
             writer.EndStep()
+            gp.stop("ADIOS_WRITE")
+            gp.stop("STEP")
 
     ## Output close
     for io, writer in writer_list:
         writer.Close()
+
+    gp.stop("TOTAL")
+    gp.pr_file("adios2-panout-timing.%d" % rank)
+    gp.pr_summary_file("adios2-panout-timing.summary")
+    gp.finalize()
