@@ -149,11 +149,12 @@ if __name__ == "__main__":
                     start, count = list(zip(*z))
 
                 logging.info((istep, vname, nsize, start, count))
-                if np.array(count).size > 0:
+                if np.zeros(count).size > 0:
                     gp.start("ADIOS_PERFORM_GETS")
                     val = fstep.read(vname, start=start, count=count)
                     gp.stop("ADIOS_PERFORM_GETS")
                     varinfo_list.append((vname, nsize, start, count, val))
+
             gp.stop("ADIOS_STEP")
 
             ## Output
