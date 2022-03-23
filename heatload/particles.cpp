@@ -11,9 +11,14 @@
 // esc_step is 1-based index. zero means no data in the DB
 Particle search(t_ParticleDB &db, int timestep, long long gid)
 {
-    assert(timestep <= db.size());
-
-    if (timestep - 1 < 0)
+    if (timestep > db.size())
+    {
+        LOG << "[ERROR] timestep is larger than db.size(): " << timestep << " " << db.size();
+        struct Particle none;
+        none.gid = 0;
+        return none;
+    }
+    else if (timestep - 1 < 0)
     {
         struct Particle none;
         none.gid = 0;
