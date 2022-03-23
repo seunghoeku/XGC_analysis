@@ -80,6 +80,7 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 
     // idiv, ediv (local), iesc, eesc (global)
     adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
+    LOG << "Done with load_data";
     if (status == adios2::StepStatus::EndOfStream)
     {
         std::cout << "Input stream terminated. Exit loop" << std::endl;
