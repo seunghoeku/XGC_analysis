@@ -149,7 +149,7 @@ if __name__ == "__main__":
                     start, count = list(zip(*z))
 
                 logging.info((istep, vname, nsize, start, count))
-                if np.zeros(count).size > 0:
+                if np.prod(count) > 0:
                     gp.start("ADIOS_PERFORM_GETS")
                     val = fstep.read(vname, start=start, count=count)
                     gp.stop("ADIOS_PERFORM_GETS")
