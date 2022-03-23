@@ -265,7 +265,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
         if (reader_comm_rank == 0)
         {
             // populate particles
-            LOG << "Pppulating iesc: " << igid_total.size();
+            LOG << "Populating iesc: " << igid_total.size();
 #pragma omp parallel for default(none)                                                                                 \
     shared(igid_total, iflag_total, istep_total, iphase_total, idw_total, iesc, std::cerr)
             for (int i = 0; i < igid_total.size(); i++)
@@ -305,7 +305,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             }
             LOG << "Done with iesc";
 
-            LOG << "Pppulating eesc: " << egid_total.size();
+            LOG << "Populating eesc: " << egid_total.size();
 #pragma omp parallel for default(none)                                                                                 \
     shared(egid_total, eflag_total, estep_total, ephase_total, edw_total, eesc, std::cerr)
             for (int i = 0; i < egid_total.size(); i++)
