@@ -6,8 +6,10 @@
 #include "load.hpp"
 #include "sml.hpp"
 
+#include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
+
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
 #include "cam_timers.hpp"
@@ -21,6 +23,9 @@ MPI_Comm reader_comm;
 int reader_comm_size;
 int reader_comm_rank;
 
+adios2::Engine dup_writer;
+adios2::IO dup_io;
+
 template <typename T> inline std::pair<int, int> split_vector(std::vector<T> &vec, int comm_size, int rank)
 {
     int nblock = vec.size() / comm_size;
@@ -31,6 +36,15 @@ template <typename T> inline std::pair<int, int> split_vector(std::vector<T> &ve
     return std::make_pair(offset, nblock);
 }
 
+template <typename T>
+inline void copy_write(adios2::IO &io, adios2::Engine &writer, adios2::Variable<T> &var, std::vector<T> &val)
+{
+    auto _var = io.InquireVariable<T>(var.Name());
+    _var.SetSelection({var.Start(), var.Count()});
+    _var.SetShape(var.Shape());
+    writer.Put<T>(var.Name(), val.data(), adios2::Mode::Sync);
+}
+
 void load_init(adios2::ADIOS *ad, const std::string &filename, MPI_Comm comm)
 {
     reader_io = ad->DeclareIO("escaped_ptls"); // same IO name as in XGC
@@ -39,11 +53,27 @@ void load_init(adios2::ADIOS *ad, const std::string &filename, MPI_Comm comm)
     reader_comm = comm;
     MPI_Comm_rank(reader_comm, &reader_comm_rank);
     MPI_Comm_size(reader_comm, &reader_comm_size);
+
+    dup_io = ad->DeclareIO("escaped_ptls_dup");
+    dup_io.DefineVariable<long>("igid", {0}, {0}, {0});
+    dup_io.DefineVariable<long>("egid", {0}, {0}, {0});
+    dup_io.DefineVariable<int>("iflag", {0}, {0}, {0});
+    dup_io.DefineVariable<int>("eflag", {0}, {0}, {0});
+    dup_io.DefineVariable<int>("istep", {0}, {0}, {0});
+    dup_io.DefineVariable<int>("estep", {0}, {0}, {0});
+    dup_io.DefineVariable<float>("idw", {0}, {0}, {0});
+    dup_io.DefineVariable<float>("edw", {0}, {0}, {0});
+    dup_io.DefineVariable<float>("ephase", {0, NPHASE}, {0, 0}, {0, NPHASE});
+    dup_io.DefineVariable<float>("iphase", {0, NPHASE}, {0, 0}, {0, NPHASE});
+
+    std::string fname = boost::str(boost::format("%s.copy") % filename);
+    dup_writer = dup_io.Open(fname, adios2::Mode::Write, reader_comm);
 }
 
 void load_finalize()
 {
     reader.Close();
+    dup_writer.Close();
 }
 
 // idiv, ediv (local), iesc, eesc (global)
@@ -69,6 +99,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
 
     TIMER_START("ADIOS_STEP");
     adios2::StepStatus status = reader.BeginStep();
+    dup_writer.BeginStep();
     if (status == adios2::StepStatus::OK)
     {
         // Inquire variables
@@ -149,6 +180,19 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 reader.PerformGets();
                 TIMER_STOP("ADIOS_PERFORM_GETS");
 
+                TIMER_START("_ADIOS_DUP_WRITE");
+                copy_write(dup_io, dup_writer, var_igid, _igid);
+                copy_write(dup_io, dup_writer, var_egid, _egid);
+                copy_write(dup_io, dup_writer, var_iflag, _iflag);
+                copy_write(dup_io, dup_writer, var_eflag, _eflag);
+                copy_write(dup_io, dup_writer, var_istep, _istep);
+                copy_write(dup_io, dup_writer, var_estep, _estep);
+                copy_write(dup_io, dup_writer, var_idw, _idw);
+                copy_write(dup_io, dup_writer, var_edw, _edw);
+                copy_write(dup_io, dup_writer, var_iphase, _iphase);
+                copy_write(dup_io, dup_writer, var_ephase, _ephase);
+                TIMER_STOP("_ADIOS_DUP_WRITE");
+
                 igid.insert(igid.end(), _igid.begin(), _igid.end());
                 egid.insert(egid.end(), _egid.begin(), _egid.end());
                 iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
@@ -162,6 +206,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             }
         }
         reader.EndStep();
+        dup_writer.EndStep();
     }
     TIMER_STOP("ADIOS_STEP");
 
