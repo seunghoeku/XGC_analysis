@@ -13,6 +13,6 @@ module load gptl4py
 
 SRC=/gpfs/alpine/proj-shared/csc143/jyc/summit/test_GB_small_su455/xgc.3d.bp
 
-LD_PRELOAD=/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libstdc++.so \
+LD_PRELOAD=/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libstdc++.so:/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libgomp.so \
 jsrun -n 8 python adios2-panout.py --npanout=6 $SRC xgc.3d.panout
 ```
