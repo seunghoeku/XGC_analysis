@@ -3,6 +3,15 @@ set(CMAKE_CXX_STANDARD 14)
 find_package (MPI COMPONENTS CXX)
 find_package(ADIOS2 REQUIRED COMPONENTS CXX MPI)
 find_package(OpenMP)
+find_package(CAMTIMERS)
+message(STATUS ${CAMTIMERS_INCLUDE_DIRS})
+message(STATUS ${CAMTIMERS_LIBRARIES})
+if(CAMTIMERS_FOUND)
+    include_directories(${CAMTIMERS_INCLUDE_DIRS})
+    add_definitions(-DCAM_TIMERS)
+    add_definitions(-DHAVE_MPI)
+endif()
+
 
 set(Boost_USE_STATIC_LIBS OFF) 
 set(Boost_USE_MULTITHREADED OFF)  
@@ -20,6 +29,9 @@ set(SOURCES
     heatload.cpp
 )
 
+include_directories(${PROJECT_SOURCE_DIR}/util)
+message(STATUS ${PROJECT_SOURCE_DIR}/util)
+
 add_library(heatloadlib ${SOURCES})
 add_executable (heatload main.cpp)
 
@@ -34,3 +46,7 @@ target_link_libraries(heatloadlib ${Boost_LIBRARIES})
 
 target_link_libraries(heatload heatloadlib adios2::adios2 MPI::MPI_C)
 target_link_libraries(heatload ${Boost_LIBRARIES})
+
+if(CAMTIMERS_FOUND)
+    target_link_libraries(heatload CAMTIMERS::CAMTIMERS)
+endif()

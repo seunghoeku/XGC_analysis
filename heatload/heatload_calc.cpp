@@ -16,6 +16,8 @@
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
+#include "cam_timers.hpp"
+
 extern Simulation sml;
 extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 
@@ -27,18 +29,18 @@ void progress_step(long int total)
     //     std::cerr << ".";
     // if ((_progress_step_current - 1) % 50'000 == 0)
     //     fprintf(stderr, "\n%ld/%ld ", _progress_step_current - 1, total);
-    if ((_progress_step_current) % 50'000 == 0)
+    if ((_progress_step_current) % 1'000'000 == 0)
         LOG << _progress_step_current << "/" << total << " processed";
 }
 
 // get heatload of single species
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
 {
-
+    TIMER_START("HEATLOAD_CALC");
     LOG << "Heatload calc div particle size " << div.size();
     // reset progress bar
     _progress_step_current = 0;
-    std::time_t start = std::time(nullptr);
+    // std::time_t start = std::time(nullptr);
 #pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
     for (int i = 0; i < div.size(); i++)
     {
@@ -96,5 +98,6 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
             }
         }
     }
-    LOG << "Wall time (seconds): " << std::difftime(std::time(nullptr), start);
+    // LOG << "Wall time (seconds): " << std::difftime(std::time(nullptr), start);
+    TIMER_STOP("HEATLOAD_CALC");
 }
