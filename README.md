@@ -3,7 +3,15 @@ Code for analysis node from XGC particle data
 
 # Build (Summit)
 ```
+module purge
+ml DefApps
+ml gcc
+
+module load cmake/3.20.2
+module load forge
 module load boost
+module load python/3.8-anaconda3
+module load libfabric/1.12.1-sysrdma
 
 ADIOS_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/adios2/devel/gcc9.1.0
 CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers/gcc9.1.0
