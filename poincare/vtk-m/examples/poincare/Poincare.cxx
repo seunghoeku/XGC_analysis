@@ -1683,6 +1683,7 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
   adiosStuff["data"] = new adiosS(adios, fName, "3d", adiosArgs);
   auto dataStuff = adiosStuff["data"];
 
+  vtkm::cont::ArrayHandle<vtkm::Particle> seeds;
   adios2::StepStatus status;
   int step = 0;
   while (true)
@@ -1717,10 +1718,14 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
     std::cout<<step<<": Read data timeStep= "<<timeStep<<std::endl;
     dataStuff->engine.EndStep();
 
-    auto seeds = GenerateSeeds(ds, xgcParams, args);
+    vtkm::cont::ArrayHandle<vtkm::Particle> seedsCopy;
+    if (step == 0) //create the seeds...
+      seeds = GenerateSeeds(ds, xgcParams, args);
+
+    vtkm::cont::ArrayCopy(seeds, seedsCopy);
 
     std::cout<<"Dump to "<<outputFile<<std::endl;
-    Poincare(ds, xgcParams, seeds, args, timeStep);
+    Poincare(ds, xgcParams, seedsCopy, args, timeStep);
 
     step++;
   }
