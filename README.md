@@ -48,6 +48,9 @@ sleep 3
 echo "Run pan-out"
 LD_PRELOAD=/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libstdc++.so:/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libgomp.so \
 jsrun -n $((JOBSIZE*NR)) python adios2-panout.py --npanout=6 -s 5 xgc.3d.bp xgc.3d.panout
+echo "Done."
+
+date
 
 ```
 
