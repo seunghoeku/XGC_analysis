@@ -8,7 +8,6 @@ ml DefApps
 ml gcc
 
 module load cmake/3.20.2
-module load forge
 module load boost
 module load python/3.8-anaconda3
 module load libfabric/1.12.1-sysrdma
