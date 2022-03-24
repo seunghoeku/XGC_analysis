@@ -16,6 +16,8 @@
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
+#include "cam_timers.hpp"
+
 extern Simulation sml;
 extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 
@@ -34,7 +36,7 @@ void progress_step(long int total)
 // get heatload of single species
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
 {
-
+    TIMER_START("HEATLOAD_CALC");
     LOG << "Heatload calc div particle size " << div.size();
     // reset progress bar
     _progress_step_current = 0;
@@ -97,4 +99,5 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
         }
     }
     LOG << "Wall time (seconds): " << std::difftime(std::time(nullptr), start);
+    TIMER_STOP("HEATLOAD_CALC");
 }

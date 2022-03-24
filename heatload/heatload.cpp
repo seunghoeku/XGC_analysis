@@ -140,7 +140,6 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
             next_idiv = &next_idiv == &idiv2 ? idiv : idiv2;
             next_ediv = &next_ediv == &ediv2 ? ediv : ediv2;
         }
-
     } while (iround < heatload_comm_size);
 
     output(ad, ion, elec, heatload_comm);

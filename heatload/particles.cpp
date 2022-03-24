@@ -6,6 +6,8 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
+#include "cam_timers.hpp"
+
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
 #define NPHASE 11
@@ -349,6 +351,7 @@ void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
 
 void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm)
 {
+    TIMER_START("PTLS_SHIFT");    
     assert(ptls_from_right.empty());
 
     int rank, comm_size;
@@ -375,4 +378,5 @@ void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm)
 
     MPI_Sendrecv(ptls.data(), ptls_nbytes, MPI_CHAR, left, tag_send, ptls_from_right.data(), ptls_from_right_nbytes,
                  MPI_CHAR, right, tag_recv, comm, &status);
+    TIMER_STOP("PTLS_SHIFT");
 }
