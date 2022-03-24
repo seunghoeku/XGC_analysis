@@ -28,6 +28,7 @@ psi = max(0, psi);
 #include <vtkm/cont/Timer.h>
 
 #include <vtkm/io/VTKDataSetWriter.h>
+#include <vtkm/io/VTKDataSetReader.h>
 #include <vtkm/cont/Algorithm.h>
 #ifdef VTKM_CUDA
 #include <vtkm/cont/cuda/internal/ScopedCudaStackSize.h>
@@ -1150,6 +1151,15 @@ ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters
   {
     ds = ReadDataSet_ORIG(args, xgcParams);
   }
+  else if (args.find("--InputVTK") != args.end())
+  {
+    std::string fname = args["--InputVTK"][0];
+    vtkm::io::VTKDataSetReader reader(fname);
+    std::cout<<"Reading input data from: "<<fname<<std::endl;
+
+    ds = reader.ReadDataSet();
+    ds.PrintSummary(std::cout);
+  }
   else
   {
     std::map<std::string, std::string> adiosArgs;
@@ -1180,81 +1190,6 @@ ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters
   }
 
   return ds;
-
-#if 0
-  if (args.find("--Step") == args.end())
-    return ReadDataSet_ORIG(args, xgcParams);
-
-  int step = std::stoi(args["--Step"][0]);
-
-  std::map<std::string, std::string> adiosArgs;
-  adiosArgs["--dir"] = args["--dir"][0];
-
-  adios = new adios2::ADIOS;
-  adiosStuff["init"] = new adiosS(adios, "xgc.poincare_init.bp", "init", adiosArgs);
-  adiosStuff["mesh"] = new adiosS(adios, "xgc.mesh.bp", "mesh", adiosArgs);
-  adiosStuff["data"] = new adiosS(adios, "xgc.3d.bp", "3d", adiosArgs);
-  adiosStuff["equil"] = new adiosS(adios, "xgc.equil.bp", "equil", adiosArgs);
-  adiosStuff["bfield"] = new adiosS(adios, "xgc.bfield.bp", "bfield", adiosArgs);
-
-  auto initStuff = adiosStuff["init"];
-  auto meshStuff = adiosStuff["mesh"];
-  auto dataStuff = adiosStuff["data"];
-  auto equilStuff = adiosStuff["equil"];
-  auto bfieldStuff = adiosStuff["bfield"];
-
-  initStuff->engine.BeginStep();
-  meshStuff->engine.BeginStep();
-  equilStuff->engine.BeginStep();
-  bfieldStuff->engine.BeginStep();
-
-  dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_n"), &xgcParams.numNodes, adios2::Mode::Sync);
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_t"), &xgcParams.numTri, adios2::Mode::Sync);
-  std::vector<double> psiVals;
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("psi"), psiVals, adios2::Mode::Sync);
-  xgcParams.psi_min = xgcParams.psi_max = psiVals[0];
-  for (const auto& p : psiVals)
-  {
-    if (p < xgcParams.psi_min) xgcParams.psi_min = p;
-    if (p > xgcParams.psi_max) xgcParams.psi_max = p;
-  }
-  std::cout<<"********                  PSI m/M = "<<xgcParams.psi_min<<" "<<xgcParams.psi_max<<std::endl;
-
-  auto ds = ReadMesh(meshStuff, xgcParams);
-  ReadPsiInterp(equilStuff, initStuff, ds, xgcParams, args);
-
-  adios2::StepStatus status;
-  for (int i = 0; i < step; i++)
-  {
-    status = dataStuff->engine.BeginStep();
-    if (status != adios2::StepStatus::OK)
-    {
-      std::cout<<"********* Failed to get step."<<std::endl;
-      return ds;
-    }
-
-    dataStuff->engine.EndStep();
-  }
-
-  ReadOther(dataStuff, ds, "As_phi_ff");
-  ReadOther(dataStuff, ds, "dAs_phi_ff");
-  ReadScalar(dataStuff, xgcParams, ds, "dpot");
-  ReadScalar(meshStuff, xgcParams, ds, "psi");
-
-  CalcAs(ds, xgcParams);
-  Calc_dAs(ds, xgcParams);
-
-  initStuff->engine.EndStep();
-  meshStuff->engine.EndStep();
-  equilStuff->engine.EndStep();
-  bfieldStuff->engine.EndStep();
-
-//  vtkm::io::VTKDataSetWriter writer("grid.vtk");
-//  writer.WriteDataSet(ds);
-
-  return ds;
-#endif
 }
 
 int oneDBlocks = 16;
@@ -1839,6 +1774,8 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
       skip = std::atoi(vals[1].c_str());
 
     std::cout<<"Reading seeds from "<<fname<<" skip= "<<skip<<std::endl;
+    if (adios == nullptr)
+      adios = new adios2::ADIOS;
 
     auto io = adios2::IO(adios->DeclareIO("seedsIO"));
     auto engine = io.Open(fname, adios2::Mode::Read);
@@ -1892,7 +1829,6 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
   std::cout<<" ****** Num Seeds= "<<seeds.size()<<std::endl;
 
   auto seedsArray = vtkm::cont::make_ArrayHandle(seeds, vtkm::CopyFlag::On);
-
   return seedsArray;
 }
 
