@@ -33,8 +33,8 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool re
 
     if (read_restart)
     {
-        ptldb_load(iesc_db, "heatload_iesc_db.bp");
-        ptldb_load(eesc_db, "heatload_eesc_db.bp");
+        ptldb_load(iesc_db, "heatload_iesc_db.bp", heatload_comm);
+        ptldb_load(eesc_db, "heatload_eesc_db.bp", heatload_comm);
     }
     TIMER_STOP("INIT");
 }
@@ -48,28 +48,6 @@ void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
     // load_init(ad, "xgc.escaped_ptls.bp");
 }
 
-void test()
-{
-    LOG << "heatload_step";
-    t_ParticlesList pmap;
-    for (int i = 0; i < 10; i++)
-    {
-        Particle ptl;
-        ptl.gid = i * 10;
-        add(pmap, ptl);
-    }
-    ptlmap_print(pmap, "pmap");
-
-    t_ParticleDB db;
-    db.push_back(pmap);
-
-    for (int i = 0; i < 50; i++)
-    {
-        Particle p = search(db, 0, i);
-        LOG << i << " " << p.gid;
-    }
-}
-
 int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 {
     TIMER_START("STEP");
@@ -78,9 +56,10 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
     t_ParticlesList iesc;
     t_ParticlesList eesc;
 
-    // idiv, ediv (local), iesc, eesc (global)
-    adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
-    LOG << "Done with load_data";
+    // idiv, ediv (local), iesc, eesc (local)
+    int timestep;
+    adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc, timestep);
+    LOG << "Done with load_data: xgc timestep = " << timestep;
     if (status == adios2::StepStatus::EndOfStream)
     {
         std::cout << "Input stream terminated. Exit loop" << std::endl;
@@ -97,37 +76,72 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
         return -1;
     }
 
-    // Sync iesc and iesc with rank 0
-    ptlmap_sync(iesc, heatload_comm);
-    ptlmap_sync(eesc, heatload_comm);
-
     LOG << ">>> Step: " << istep;
     LOG << "Num. of escaped ions: " << ptlmap_count(iesc);
     LOG << "Num. of escaped elec: " << ptlmap_count(eesc);
-    LOG << "Num. of divertor ions: " << idiv.size();
-    LOG << "Num. of divertor elec: " << ediv.size();
 
-    // separate divertor particles and escaped particles
-    iesc_db.push_back(iesc);
-    eesc_db.push_back(eesc);
+    // store escaped particles to DB
+    insert_or_append(iesc_db, timestep, iesc);
+    insert_or_append(eesc_db, timestep, eesc);
     ptldb_print(iesc_db, "iesc_db");
     ptldb_print(eesc_db, "eesc_db");
 
-    // store escaped particles to DB
+    // Get how many div particles each one has
+    int idiv_len = idiv.size();
+    int ediv_len = ediv.size();
+    std::vector<int> idiv_len_list(heatload_comm_size);
+    std::vector<int> ediv_len_list(heatload_comm_size);
+    MPI_Allgather(&idiv_len, 1, MPI_INT, idiv_len_list.data(), 1, MPI_INT, heatload_comm);
+    MPI_Allgather(&ediv_len, 1, MPI_INT, ediv_len_list.data(), 1, MPI_INT, heatload_comm);
 
     // Calculate heatload from divertor particles
     HeatLoad ion(1);
     HeatLoad elec(0);
 
-    heatload_calc(idiv, ion, iesc_db); // need to send DB
-    // Debug
-    // ptldb_dump(iesc_db, "iesc_db");
-    // auto p = search(iesc_db, 0, 820040877);
-    // LOG << "Found? " << p.gid;
-    if (!ion_only)
+    // div from the next neighbor
+    Particles idiv2;
+    Particles ediv2;
+    Particles &current_idiv = idiv;
+    Particles &current_ediv = ediv;
+    Particles &next_idiv = idiv2;
+    Particles &next_ediv = ediv2;
+
+    int iround = 0;
+    do
     {
-        heatload_calc(ediv, elec, eesc_db);
-    }
+        LOG << ">>> Step,round: " << istep << " " << iround;
+        LOG << "Num. of divertor ions: " << current_idiv.size();
+        LOG << "Num. of divertor elec: " << current_ediv.size();
+
+        heatload_calc(current_idiv, ion, iesc_db); // need to send DB
+        // Debug
+        // ptldb_dump(iesc_db, "iesc_db");
+        // auto p = search(iesc_db, 0, 820040877);
+        // LOG << "Found? " << p.gid;
+        if (!ion_only)
+        {
+            heatload_calc(current_ediv, elec, eesc_db);
+        }
+
+        iround++;
+
+        // Get div from the next neighbor
+        // No need to do in the last round
+        if (iround < heatload_comm_size)
+        {
+            next_idiv.clear();
+            next_ediv.clear();
+            ptls_shift(current_idiv, next_idiv, heatload_comm);
+            ptls_shift(current_ediv, next_ediv, heatload_comm);
+
+            // swap reference
+            current_idiv = &current_idiv == &idiv ? idiv2 : idiv;
+            current_ediv = &current_ediv == &ediv ? ediv2 : ediv;
+            next_idiv = &next_idiv == &idiv2 ? idiv : idiv2;
+            next_ediv = &next_ediv == &ediv2 ? ediv : ediv2;
+        }
+    } while (iround < heatload_comm_size);
+
     output(ad, ion, elec, heatload_comm);
 
 #ifdef CAM_TIMERS
@@ -143,18 +157,15 @@ void heatload_finalize()
     load_finalize();
     output_finalize(heatload_comm);
 
-    if (heatload_comm_rank == 0)
-    {
-        ptldb_save(iesc_db, "heatload_iesc_db.bp");
-        ptldb_save(eesc_db, "heatload_eesc_db.bp");
-    }
+    ptldb_save(iesc_db, "heatload_iesc_db.bp", heatload_comm);
+    ptldb_save(eesc_db, "heatload_eesc_db.bp", heatload_comm);
     TIMER_STOP("FINALIZE");
 }
 
 void heatload(adios2::ADIOS *ad)
 {
     int i = 0;
-    while (1)
+    while (true)
     {
         i++;
 
@@ -164,7 +175,8 @@ void heatload(adios2::ADIOS *ad)
         t_ParticlesList eesc;
 
         // idiv, ediv (local), iesc, eesc (global)
-        adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
+        int timestep;
+        adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc, timestep);
         if (status == adios2::StepStatus::EndOfStream)
         {
             std::cout << "Input stream terminated. Exit loop" << std::endl;
@@ -192,8 +204,8 @@ void heatload(adios2::ADIOS *ad)
         LOG << "Num. of divertor elec: " << ediv.size();
 
         // separate divertor particles and escaped particles
-        iesc_db.push_back(iesc);
-        eesc_db.push_back(eesc);
+        insert_or_append(iesc_db, timestep, iesc);
+        insert_or_append(eesc_db, timestep, eesc);
 
         // store escaped particles to DB
 

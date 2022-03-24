@@ -6,6 +6,7 @@
 #include "load.hpp"
 #include "sml.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
@@ -65,9 +66,11 @@ void load_init(adios2::ADIOS *ad, const std::string &filename, MPI_Comm comm)
     dup_io.DefineVariable<float>("edw", {0}, {0}, {0});
     dup_io.DefineVariable<float>("ephase", {0, NPHASE}, {0, 0}, {0, NPHASE});
     dup_io.DefineVariable<float>("iphase", {0, NPHASE}, {0, 0}, {0, NPHASE});
+    dup_io.DefineVariable<int>("timestep");
 
     std::string fname = boost::str(boost::format("%s.copy") % filename);
-    dup_writer = dup_io.Open(fname, adios2::Mode::Write, reader_comm);
+    boost::filesystem::path p(fname);
+    dup_writer = dup_io.Open(p.filename().string(), adios2::Mode::Write, reader_comm);
 }
 
 void load_finalize()
@@ -76,15 +79,15 @@ void load_finalize()
     dup_writer.Close();
 }
 
-// idiv, ediv (local), iesc, eesc (global)
-adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
+// idiv, ediv (local), iesc, eesc (local)
+adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc,
+                             int &timestep)
 {
     TIMER_START("LOAD_DATA");
-    // Clear vector
-    idiv.clear();
-    ediv.clear();
-    iesc.clear();
-    eesc.clear();
+    assert(idiv.empty());
+    assert(ediv.empty());
+    assert(iesc.empty());
+    assert(eesc.empty());
 
     std::vector<long> igid;
     std::vector<long> egid;
@@ -176,6 +179,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 reader.Get<float>(var_edw, _edw);
                 reader.Get<float>(var_iphase, _iphase);
                 reader.Get<float>(var_ephase, _ephase);
+                reader.Get<int>("timestep", &timestep);
                 TIMER_START("ADIOS_PERFORM_GETS");
                 reader.PerformGets();
                 TIMER_STOP("ADIOS_PERFORM_GETS");
@@ -191,6 +195,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 copy_write(dup_io, dup_writer, var_edw, _edw);
                 copy_write(dup_io, dup_writer, var_iphase, _iphase);
                 copy_write(dup_io, dup_writer, var_ephase, _ephase);
+                dup_writer.Put<int>("timestep", timestep);
                 TIMER_STOP("_ADIOS_DUP_WRITE");
 
                 igid.insert(igid.end(), _igid.begin(), _igid.end());
@@ -210,189 +215,13 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
     }
     TIMER_STOP("ADIOS_STEP");
 
-    TIMER_START("LOAD_DATA_GATHER");
     if (status == adios2::StepStatus::OK)
     {
-
         assert(iphase.size() / igid.size() == NPHASE);
         assert(ephase.size() / egid.size() == NPHASE);
 
-        // Merge to rank 0
-        int len = igid.size();
-        std::vector<int> len_list(reader_comm_size);
-        std::vector<int> displacement_list(reader_comm_size);
-
-        MPI_Allgather(&len, 1, MPI_INT, len_list.data(), 1, MPI_INT, reader_comm);
-
-        long int ntotal = 0;
-        for (int i = 0; i < len_list.size(); i++)
-        {
-            displacement_list[i] = ntotal;
-            ntotal += len_list[i];
-        }
-        LOG << "ion len,ntotal: " << len << " " << ntotal;
-
-        std::vector<long> igid_total(ntotal);
-        std::vector<int> iflag_total(ntotal);
-        std::vector<int> istep_total(ntotal);
-        std::vector<float> idw_total(ntotal);
-        std::vector<float> iphase_total(ntotal * NPHASE);
-
-        MPI_Gatherv(igid.data(), igid.size(), MPI_LONG, igid_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_LONG, 0, reader_comm);
-        MPI_Gatherv(iflag.data(), iflag.size(), MPI_INT, iflag_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_INT, 0, reader_comm);
-        MPI_Gatherv(istep.data(), istep.size(), MPI_INT, istep_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_INT, 0, reader_comm);
-        MPI_Gatherv(idw.data(), idw.size(), MPI_FLOAT, idw_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_FLOAT, 0, reader_comm);
-
-        for (int i = 0; i < len_list.size(); i++)
-        {
-            len_list[i] = len_list[i] * NPHASE;
-        }
-
-        ntotal = 0;
-        for (int i = 0; i < len_list.size(); i++)
-        {
-            displacement_list[i] = ntotal;
-            ntotal += len_list[i];
-        }
-
-        MPI_Gatherv(iphase.data(), iphase.size(), MPI_FLOAT, iphase_total.data(), len_list.data(),
-                    displacement_list.data(), MPI_FLOAT, 0, reader_comm);
-
-        // Electron
-        len = egid.size();
-        MPI_Allgather(&len, 1, MPI_INT, len_list.data(), 1, MPI_INT, reader_comm);
-
-        ntotal = 0;
-        for (int i = 0; i < len_list.size(); i++)
-        {
-            // LOG << boost::format("%d %d") % i % len_list[i];
-            displacement_list[i] = ntotal;
-            ntotal += len_list[i];
-        }
-        LOG << "electron len,ntotal: " << len << " " << ntotal;
-
-        std::vector<long> egid_total(ntotal);
-        std::vector<int> eflag_total(ntotal);
-        std::vector<int> estep_total(ntotal);
-        std::vector<float> edw_total(ntotal);
-        std::vector<float> ephase_total(ntotal * NPHASE);
-
-        MPI_Gatherv(egid.data(), egid.size(), MPI_LONG, egid_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_LONG, 0, reader_comm);
-        MPI_Gatherv(eflag.data(), eflag.size(), MPI_INT, eflag_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_INT, 0, reader_comm);
-        MPI_Gatherv(estep.data(), estep.size(), MPI_INT, estep_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_INT, 0, reader_comm);
-        MPI_Gatherv(edw.data(), edw.size(), MPI_FLOAT, edw_total.data(), len_list.data(), displacement_list.data(),
-                    MPI_FLOAT, 0, reader_comm);
-
-        for (int i = 0; i < len_list.size(); i++)
-        {
-            len_list[i] = len_list[i] * NPHASE;
-        }
-
-        ntotal = 0;
-        for (int i = 0; i < len_list.size(); i++)
-        {
-            displacement_list[i] = ntotal;
-            ntotal += len_list[i];
-        }
-
-        MPI_Gatherv(ephase.data(), ephase.size(), MPI_FLOAT, ephase_total.data(), len_list.data(),
-                    displacement_list.data(), MPI_FLOAT, 0, reader_comm);
-        LOG << "Done with Gather";
-
-        // Rank 0 populate iesc and eesc (to be distributed)
-        if (reader_comm_rank == 0)
-        {
-            // populate particles
-            LOG << "Populating iesc: " << igid_total.size();
-#pragma omp parallel for default(none)                                                                                 \
-    shared(igid_total, iflag_total, istep_total, iphase_total, idw_total, iesc, std::cerr)
-            for (int i = 0; i < igid_total.size(); i++)
-            {
-                struct Particle iptl;
-                iptl.gid = igid_total[i];
-                iptl.flag = iflag_total[i];
-                iptl.esc_step = istep_total[i];
-                iptl.r = GET(iphase_total, i, 0);
-                iptl.z = GET(iphase_total, i, 1);
-                iptl.phi = GET(iphase_total, i, 2);
-                iptl.rho = GET(iphase_total, i, 3);
-                iptl.w1 = GET(iphase_total, i, 4);
-                iptl.w2 = GET(iphase_total, i, 5);
-                iptl.mu = GET(iphase_total, i, 6);
-                iptl.w0 = GET(iphase_total, i, 7);
-                iptl.f0 = GET(iphase_total, i, 8);
-                iptl.psi = GET(iphase_total, i, 9);
-                iptl.B = GET(iphase_total, i, 10);
-                iptl.dw = idw_total[i];
-
-                int flag1; // tmp flag
-                flag1 = iflag_total[i];
-
-                Flags fl(flag1); // decode flags
-
-                // save to div or esc
-                // (2022/03/16) esc is global (will be shared with all), div is local
-                if (fl.escaped)
-                {
-#pragma omp critical
-                    {
-                        // add to esc
-                        add(iesc, iptl);
-                    }
-                }
-            }
-            LOG << "Done with iesc";
-
-            LOG << "Populating eesc: " << egid_total.size();
-#pragma omp parallel for default(none)                                                                                 \
-    shared(egid_total, eflag_total, estep_total, ephase_total, edw_total, eesc, std::cerr)
-            for (int i = 0; i < egid_total.size(); i++)
-            {
-                struct Particle eptl;
-                eptl.gid = egid_total[i];
-                eptl.flag = eflag_total[i];
-                eptl.esc_step = estep_total[i];
-                eptl.r = GET(ephase_total, i, 0);
-                eptl.z = GET(ephase_total, i, 1);
-                eptl.phi = GET(ephase_total, i, 2);
-                eptl.rho = GET(ephase_total, i, 3);
-                eptl.w1 = GET(ephase_total, i, 4);
-                eptl.w2 = GET(ephase_total, i, 5);
-                eptl.mu = GET(ephase_total, i, 6);
-                eptl.w0 = GET(ephase_total, i, 7);
-                eptl.f0 = GET(ephase_total, i, 8);
-                eptl.psi = GET(ephase_total, i, 9);
-                eptl.B = GET(ephase_total, i, 10);
-                eptl.dw = edw_total[i];
-
-                int flag1; // tmp flag
-                flag1 = eflag_total[i];
-
-                Flags fl(flag1); // decode flags
-
-                // save to div or esc
-                if (fl.escaped)
-                {
-#pragma omp critical
-                    {
-                        // add to esc
-                        add(eesc, eptl);
-                    }
-                }
-            }
-            LOG << "Done with eesc";
-        }
-
-        // Everone
-        // populate idiv with local data
-#pragma omp parallel for default(none) shared(igid, iflag, istep, iphase, idw, idiv, std::cerr)
+        // Each will sort out esc or div particles and build own DB
+#pragma omp parallel for default(none) shared(igid, iflag, istep, iphase, idw, iesc, idiv, std::cerr)
         for (int i = 0; i < igid.size(); i++)
         {
             struct Particle iptl;
@@ -417,7 +246,15 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
 
             Flags fl(flag1); // decode flags
 
-            if (!fl.escaped)
+            if (fl.escaped)
+            {
+#pragma omp critical
+                {
+                    // add to esc
+                    add(iesc, iptl);
+                }
+            }
+            else
             {
 #pragma omp critical
                 {
@@ -426,10 +263,10 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 }
             }
         }
-        LOG << "Done with idiv";
+        LOG << "Done with iesc and idiv";
 
         // populate ediv with local data
-#pragma omp parallel for default(none) shared(egid, eflag, estep, ephase, edw, ediv, std::cerr)
+#pragma omp parallel for default(none) shared(egid, eflag, estep, ephase, edw, eesc, ediv, std::cerr)
         for (int i = 0; i < egid.size(); i++)
         {
             struct Particle eptl;
@@ -455,7 +292,15 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
             Flags fl(flag1); // decode flags
 
             // save to div or esc
-            if (!fl.escaped)
+            if (fl.escaped)
+            {
+#pragma omp critical
+                {
+                    // add to esc
+                    add(eesc, eptl);
+                }
+            }
+            else
             {
 #pragma omp critical
                 {
@@ -464,9 +309,8 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 }
             }
         }
-        LOG << "Done with ediv";
+        LOG << "Done with eesc and ediv";
     }
-    TIMER_STOP("LOAD_DATA_GATHER");
 
     TIMER_STOP("LOAD_DATA");
     return status;
