@@ -6,6 +6,7 @@
 #include "load.hpp"
 #include "sml.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
@@ -65,9 +66,11 @@ void load_init(adios2::ADIOS *ad, const std::string &filename, MPI_Comm comm)
     dup_io.DefineVariable<float>("edw", {0}, {0}, {0});
     dup_io.DefineVariable<float>("ephase", {0, NPHASE}, {0, 0}, {0, NPHASE});
     dup_io.DefineVariable<float>("iphase", {0, NPHASE}, {0, 0}, {0, NPHASE});
+    dup_io.DefineVariable<int>("timestep");
 
     std::string fname = boost::str(boost::format("%s.copy") % filename);
-    dup_writer = dup_io.Open(fname, adios2::Mode::Write, reader_comm);
+    boost::filesystem::path p(fname);
+    dup_writer = dup_io.Open(p.filename().string(), adios2::Mode::Write, reader_comm);
 }
 
 void load_finalize()
@@ -76,15 +79,15 @@ void load_finalize()
     dup_writer.Close();
 }
 
-// idiv, ediv (local), iesc, eesc (global)
-adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc)
+// idiv, ediv (local), iesc, eesc (local)
+adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &iesc, t_ParticlesList &eesc,
+                             int &timestep)
 {
     TIMER_START("LOAD_DATA");
-    // Clear vector
-    idiv.clear();
-    ediv.clear();
-    iesc.clear();
-    eesc.clear();
+    assert(idiv.empty());
+    assert(ediv.empty());
+    assert(iesc.empty());
+    assert(eesc.empty());
 
     std::vector<long> igid;
     std::vector<long> egid;
@@ -176,6 +179,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 reader.Get<float>(var_edw, _edw);
                 reader.Get<float>(var_iphase, _iphase);
                 reader.Get<float>(var_ephase, _ephase);
+                reader.Get<int>("timestep", &timestep);
                 TIMER_START("ADIOS_PERFORM_GETS");
                 reader.PerformGets();
                 TIMER_STOP("ADIOS_PERFORM_GETS");
@@ -191,6 +195,7 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
                 copy_write(dup_io, dup_writer, var_edw, _edw);
                 copy_write(dup_io, dup_writer, var_iphase, _iphase);
                 copy_write(dup_io, dup_writer, var_ephase, _ephase);
+                dup_writer.Put<int>("timestep", timestep);
                 TIMER_STOP("_ADIOS_DUP_WRITE");
 
                 igid.insert(igid.end(), _igid.begin(), _igid.end());

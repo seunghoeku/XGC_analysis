@@ -33,8 +33,8 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool re
 
     if (read_restart)
     {
-        ptldb_load(iesc_db, "heatload_iesc_db.bp");
-        ptldb_load(eesc_db, "heatload_eesc_db.bp");
+        ptldb_load(iesc_db, "heatload_iesc_db.bp", heatload_comm);
+        ptldb_load(eesc_db, "heatload_eesc_db.bp", heatload_comm);
     }
     TIMER_STOP("INIT");
 }
@@ -48,28 +48,6 @@ void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
     // load_init(ad, "xgc.escaped_ptls.bp");
 }
 
-void test()
-{
-    LOG << "heatload_step";
-    t_ParticlesList pmap;
-    for (int i = 0; i < 10; i++)
-    {
-        Particle ptl;
-        ptl.gid = i * 10;
-        add(pmap, ptl);
-    }
-    ptlmap_print(pmap, "pmap");
-
-    t_ParticleDB db;
-    db.push_back(pmap);
-
-    for (int i = 0; i < 50; i++)
-    {
-        Particle p = search(db, 0, i);
-        LOG << i << " " << p.gid;
-    }
-}
-
 int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 {
     TIMER_START("STEP");
@@ -79,8 +57,9 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
     t_ParticlesList eesc;
 
     // idiv, ediv (local), iesc, eesc (local)
-    adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
-    LOG << "Done with load_data";
+    int timestep;
+    adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc, timestep);
+    LOG << "Done with load_data: xgc timestep = " << timestep;
     if (status == adios2::StepStatus::EndOfStream)
     {
         std::cout << "Input stream terminated. Exit loop" << std::endl;
@@ -102,8 +81,8 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
     LOG << "Num. of escaped elec: " << ptlmap_count(eesc);
 
     // store escaped particles to DB
-    iesc_db.push_back(iesc);
-    eesc_db.push_back(eesc);
+    insert_or_append(iesc_db, timestep, iesc);
+    insert_or_append(eesc_db, timestep, eesc);
     ptldb_print(iesc_db, "iesc_db");
     ptldb_print(eesc_db, "eesc_db");
 
@@ -179,18 +158,15 @@ void heatload_finalize()
     load_finalize();
     output_finalize(heatload_comm);
 
-    if (heatload_comm_rank == 0)
-    {
-        ptldb_save(iesc_db, "heatload_iesc_db.bp");
-        ptldb_save(eesc_db, "heatload_eesc_db.bp");
-    }
+    ptldb_save(iesc_db, "heatload_iesc_db.bp", heatload_comm);
+    ptldb_save(eesc_db, "heatload_eesc_db.bp", heatload_comm);
     TIMER_STOP("FINALIZE");
 }
 
 void heatload(adios2::ADIOS *ad)
 {
     int i = 0;
-    while (1)
+    while (true)
     {
         i++;
 
@@ -200,7 +176,8 @@ void heatload(adios2::ADIOS *ad)
         t_ParticlesList eesc;
 
         // idiv, ediv (local), iesc, eesc (global)
-        adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc);
+        int timestep;
+        adios2::StepStatus status = load_data(idiv, ediv, iesc, eesc, timestep);
         if (status == adios2::StepStatus::EndOfStream)
         {
             std::cout << "Input stream terminated. Exit loop" << std::endl;
@@ -228,8 +205,8 @@ void heatload(adios2::ADIOS *ad)
         LOG << "Num. of divertor elec: " << ediv.size();
 
         // separate divertor particles and escaped particles
-        iesc_db.push_back(iesc);
-        eesc_db.push_back(eesc);
+        insert_or_append(iesc_db, timestep, iesc);
+        insert_or_append(eesc_db, timestep, eesc);
 
         // store escaped particles to DB
 
