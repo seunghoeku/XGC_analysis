@@ -45,6 +45,7 @@ int ptlmap_count(t_ParticlesList &pmap);
 void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm);
 void ptlmap_print(t_ParticlesList &pmap, std::string str);
 void ptldb_dump(t_ParticleDB &db, std::string str);
+void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm);
 
 //#include "particles.tpp"
 #endif

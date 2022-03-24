@@ -209,3 +209,33 @@ void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
         }
     }
 }
+
+void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm)
+{
+    assert(ptls_from_right.empty());
+
+    int rank, comm_size;
+    MPI_Status status;
+    int tag_send = 0, tag_recv = 0;
+
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &comm_size);
+
+    int left = rank - 1 < 0 ? comm_size - 1 : rank - 1;
+    int right = rank + 1 >= comm_size ? 0 : rank + 1;
+
+    int len = ptls.size();
+    LOG << "current len: " << len;
+
+    // send to the left and receive from the right
+    MPI_Sendrecv_replace(&len, 1, MPI_INT, left, tag_send, right, tag_recv, comm, &status);
+    LOG << "new len: " << len;
+
+    ptls_from_right.resize(len);
+
+    int ptls_nbytes = ptls.size() * sizeof(struct Particle);
+    int ptls_from_right_nbytes = ptls_from_right.size() * sizeof(struct Particle);
+
+    MPI_Sendrecv(ptls.data(), ptls_nbytes, MPI_CHAR, left, tag_send, ptls_from_right.data(), ptls_from_right_nbytes,
+                 MPI_CHAR, right, tag_recv, comm, &status);
+}
