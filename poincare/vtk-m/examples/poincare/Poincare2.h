@@ -522,7 +522,7 @@ public:
       if (particle.NumSteps >= this->MaxIter || particle.NumPunctures >= this->MaxPunc)
       {
 #if !defined(VTKM_CUDA) && !defined(VTKM_HIP)
-        std::cout<<"************************************* All done: id= "<<particle.ID<<" #Punc= "<<particle.NumPunctures<<std::endl;
+        std::cout<<"************************************* All done: id= "<<particle.ID<<" #Punc= "<<particle.NumPunctures<<" #steps= "<<particle.NumSteps<<std::endl;
 #endif
         break;
       }
