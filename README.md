@@ -35,7 +35,19 @@ CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH="$ADIOS_DIR;$CAMTIMER_DIR" ..
 
 export OMPI_MCA_coll_ibm_collselect_mode_barrier=failsafe
 
-date
+module purge
+ml DefApps
+ml gcc
+
+module load cmake/3.20.2
+module load forge
+module load boost
+module load python/3.8-anaconda3
+module load libfabric/1.12.1-sysrdma
+
+module use -a /gpfs/alpine/world-shared/phy122/lib/install/summit/modulefiles
+module load adios2/devel
+module load gptl4py/devel
 
 NR=6
 XGCDIR=/gpfs/alpine/world-shared/phy122/sku/GB_ITER_1024
@@ -56,8 +68,6 @@ echo "Run pan-out"
 LD_PRELOAD=/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libstdc++.so:/sw/summit/gcc/9.1.0-alpha+20190716/lib64/libgomp.so \
 jsrun -n $((JOBSIZE*NR)) python adios2-panout.py --npanout=6 -s 5 xgc.3d.bp xgc.3d.panout
 echo "Done."
-
-date
 
 ```
 
