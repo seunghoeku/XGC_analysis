@@ -173,7 +173,7 @@ vtkm::ErrorCode FindCell2(const FloatVec3& point,
       auto ldim = this->LeafDimensions.Get(binId);
       if (!ldim[0] || !ldim[1] || !ldim[2])
       {
-        printf("2L CellNotFound:: %d\n", __LINE__);
+        //printf("2L CellNotFound:: %d\n", __LINE__);
         return vtkm::ErrorCode::CellNotFound;
       }
 
@@ -210,7 +210,7 @@ vtkm::ErrorCode FindCell2(const FloatVec3& point,
       }
     }
 
-    printf("2L CellNotFound:: %d\n", __LINE__);
+    //printf("2L CellNotFound:: %d\n", __LINE__);
     return vtkm::ErrorCode::CellNotFound;
   }
 
@@ -228,7 +228,7 @@ vtkm::ErrorCode FindCell2(const FloatVec3& point,
       auto indices = this->CellSet.GetIndices(prevCell[2]);
       auto pts = vtkm::make_VecFromPortalPermute(&indices, this->Coords);
       FloatVec3 pc;
-      bool inside;
+      bool inside = false;
       PointInsideCell(point, this->CellSet.GetCellShape(prevCell[2]), pts, pc, inside);
       if (inside)
       {
@@ -304,7 +304,7 @@ vtkm::ErrorCode FindCell2(const FloatVec3& point,
       auto ldim = this->LeafDimensions.Get(binId);
       if (!ldim[0] || !ldim[1] || !ldim[2])
       {
-        printf("2L CellNotFound:: %d\n", __LINE__);
+        //printf("2L CellNotFound:: %d\n", __LINE__);
         return vtkm::ErrorCode::CellNotFound;
       }
 
@@ -337,7 +337,7 @@ vtkm::ErrorCode FindCell2(const FloatVec3& point,
       }
     }
 
-    printf("2L CellNotFound:: %d\n", __LINE__);
+    //printf("2L CellNotFound:: %d\n", __LINE__);
     return vtkm::ErrorCode::CellNotFound;
   }
 

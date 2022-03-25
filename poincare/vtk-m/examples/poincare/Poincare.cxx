@@ -28,6 +28,7 @@ psi = max(0, psi);
 #include <vtkm/cont/Timer.h>
 
 #include <vtkm/io/VTKDataSetWriter.h>
+#include <vtkm/io/VTKDataSetReader.h>
 #include <vtkm/cont/Algorithm.h>
 #ifdef VTKM_CUDA
 #include <vtkm/cont/cuda/internal/ScopedCudaStackSize.h>
@@ -1073,72 +1074,6 @@ ReadDataSet_ORIG(std::map<std::string, std::vector<std::string>>& args, XGCParam
   UpdateField(ds, "dAs_ff_rzp", dAs);
 
   return ds;
-
-
-#if 0
-  std::map<std::string, std::string> adiosArgs;
-  adiosArgs["--dir"] = args["--dir"][0];
-
-  std::cout<<__FILE__<<" "<<__LINE__<<std::endl;
-  adios = new adios2::ADIOS;
-  adiosStuff["mesh"] = new adiosS(adios, "xgc.mesh.bp", "mesh", adiosArgs);
-  adiosStuff["data"] = new adiosS(adios, "xgc.3d.bp", "3d", adiosArgs);
-  adiosStuff["bfield"] = new adiosS(adios, "xgc.bfield.bp", "/node_data[0]/values", adiosArgs);
-  adiosStuff["bfield-all"] = new adiosS(adios, "xgc.bfield-all.bp", "Bs", adiosArgs);
-  //adiosStuff["psi_bicub_acoef"] = new adiosS(adios, "xgc.bfield_with_coeff.bp", "psi_bicub_acoef", adiosArgs);
-  //adiosStuff["one_d_cub_psi_acoef"] = new adiosS(adios, "xgc.bfield_with_coeff.bp", "one_d_cub_acoef", adiosArgs);
-  adiosStuff["interp_coeff"] = new adiosS(adios, "xgc.bfield_with_coeff.bp", "interp_coeff", adiosArgs);
-  adiosStuff["equil"] = new adiosS(adios, "xgc.equil.bp", "equil", adiosArgs);
-
-  auto meshStuff = adiosStuff["mesh"];
-  auto dataStuff = adiosStuff["data"];
-  auto bfieldStuff = adiosStuff["bfield"];
-  auto bfield_allStuff = adiosStuff["bfield-all"];
-  auto interp_coeffStuff = adiosStuff["interp_coeff"];
-  auto equilStuff = adiosStuff["equil"];
-  //auto one_dcub_acoefStuff = adiosStuff["one_d_cub_psi_acoef"];
-
-  meshStuff->engine.BeginStep();
-  dataStuff->engine.BeginStep();
-  bfieldStuff->engine.BeginStep();
-  bfield_allStuff->engine.BeginStep();
-  interp_coeffStuff->engine.BeginStep();
-  equilStuff->engine.BeginStep();
-  //one_dcub_acoefStuff->engine.BeginStep();
-
-  dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_n"), &xgcParams.numNodes, adios2::Mode::Sync);
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_t"), &xgcParams.numTri, adios2::Mode::Sync);
-  std::vector<double> psiVals;
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("psi"), psiVals, adios2::Mode::Sync);
-  xgcParams.psi_min = xgcParams.psi_max = psiVals[0];
-  for (const auto& p : psiVals)
-  {
-    if (p < xgcParams.psi_min) xgcParams.psi_min = p;
-    if (p > xgcParams.psi_max) xgcParams.psi_max = p;
-  }
-  std::cout<<"********                  PSI m/M = "<<xgcParams.psi_min<<" "<<xgcParams.psi_max<<std::endl;
-
-  //Try and do everything in cylindrical coords and worklets.
-  auto ds = ReadMesh(meshStuff, xgcParams);
-  ReadScalar(dataStuff, xgcParams, ds, "dpot");
-  ReadScalar(dataStuff, xgcParams, ds, "apars", "apars", true);
-  ReadScalar(meshStuff, xgcParams, ds, "psi");
-  ReadScalar(meshStuff, xgcParams, ds, "theta");
-
-  ReadOther(bfieldStuff, ds, "As_phi_ff");
-  ReadOther(bfieldStuff, ds, "dAs_phi_ff");
-  ReadPsiInterp(equilStuff, interp_coeffStuff, ds, xgcParams, args);
-
-  CalcAs(ds, xgcParams);
-  Calc_dAs(ds, xgcParams);
-
-
-//  vtkm::io::VTKDataSetWriter writer("grid.vtk");
-//  writer.WriteDataSet(ds);
-
-  return ds;
-#endif
 }
 
 vtkm::cont::DataSet
@@ -1149,6 +1084,15 @@ ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters
   if (args.find("--test") != args.end())
   {
     ds = ReadDataSet_ORIG(args, xgcParams);
+  }
+  else if (args.find("--InputVTK") != args.end())
+  {
+    std::string fname = args["--InputVTK"][0];
+    vtkm::io::VTKDataSetReader reader(fname);
+    std::cout<<"Reading input data from: "<<fname<<std::endl;
+
+    ds = reader.ReadDataSet();
+    ds.PrintSummary(std::cout);
   }
   else
   {
@@ -1180,81 +1124,6 @@ ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters
   }
 
   return ds;
-
-#if 0
-  if (args.find("--Step") == args.end())
-    return ReadDataSet_ORIG(args, xgcParams);
-
-  int step = std::stoi(args["--Step"][0]);
-
-  std::map<std::string, std::string> adiosArgs;
-  adiosArgs["--dir"] = args["--dir"][0];
-
-  adios = new adios2::ADIOS;
-  adiosStuff["init"] = new adiosS(adios, "xgc.poincare_init.bp", "init", adiosArgs);
-  adiosStuff["mesh"] = new adiosS(adios, "xgc.mesh.bp", "mesh", adiosArgs);
-  adiosStuff["data"] = new adiosS(adios, "xgc.3d.bp", "3d", adiosArgs);
-  adiosStuff["equil"] = new adiosS(adios, "xgc.equil.bp", "equil", adiosArgs);
-  adiosStuff["bfield"] = new adiosS(adios, "xgc.bfield.bp", "bfield", adiosArgs);
-
-  auto initStuff = adiosStuff["init"];
-  auto meshStuff = adiosStuff["mesh"];
-  auto dataStuff = adiosStuff["data"];
-  auto equilStuff = adiosStuff["equil"];
-  auto bfieldStuff = adiosStuff["bfield"];
-
-  initStuff->engine.BeginStep();
-  meshStuff->engine.BeginStep();
-  equilStuff->engine.BeginStep();
-  bfieldStuff->engine.BeginStep();
-
-  dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_n"), &xgcParams.numNodes, adios2::Mode::Sync);
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<int>("n_t"), &xgcParams.numTri, adios2::Mode::Sync);
-  std::vector<double> psiVals;
-  meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("psi"), psiVals, adios2::Mode::Sync);
-  xgcParams.psi_min = xgcParams.psi_max = psiVals[0];
-  for (const auto& p : psiVals)
-  {
-    if (p < xgcParams.psi_min) xgcParams.psi_min = p;
-    if (p > xgcParams.psi_max) xgcParams.psi_max = p;
-  }
-  std::cout<<"********                  PSI m/M = "<<xgcParams.psi_min<<" "<<xgcParams.psi_max<<std::endl;
-
-  auto ds = ReadMesh(meshStuff, xgcParams);
-  ReadPsiInterp(equilStuff, initStuff, ds, xgcParams, args);
-
-  adios2::StepStatus status;
-  for (int i = 0; i < step; i++)
-  {
-    status = dataStuff->engine.BeginStep();
-    if (status != adios2::StepStatus::OK)
-    {
-      std::cout<<"********* Failed to get step."<<std::endl;
-      return ds;
-    }
-
-    dataStuff->engine.EndStep();
-  }
-
-  ReadOther(dataStuff, ds, "As_phi_ff");
-  ReadOther(dataStuff, ds, "dAs_phi_ff");
-  ReadScalar(dataStuff, xgcParams, ds, "dpot");
-  ReadScalar(meshStuff, xgcParams, ds, "psi");
-
-  CalcAs(ds, xgcParams);
-  Calc_dAs(ds, xgcParams);
-
-  initStuff->engine.EndStep();
-  meshStuff->engine.EndStep();
-  equilStuff->engine.EndStep();
-  bfieldStuff->engine.EndStep();
-
-//  vtkm::io::VTKDataSetWriter writer("grid.vtk");
-//  writer.WriteDataSet(ds);
-
-  return ds;
-#endif
 }
 
 int oneDBlocks = 16;
@@ -1395,7 +1264,7 @@ int GetIndex(const vtkm::FloatDefault& x,
   //int idx = std::max(1, std::min(nx  , 1 + int ((x-xmin)*dx_inv)) );
   //return idx-1;
 
-  std::cout<<"GetIndex: "<<x<<" "<<nx<<" "<<xmin<<" "<<dx_inv<<std::endl;
+  //std::cout<<"GetIndex: "<<x<<" "<<nx<<" "<<xmin<<" "<<dx_inv<<std::endl;
   int idx = std::max(0, std::min(nx-1,
                                  int((x-xmin)*dx_inv)) );
   return idx;
@@ -1450,11 +1319,13 @@ InterpolatePsi(const vtkm::Vec2f& ptRZ,
   //vtkm::Id offset = (r_i * ncoeff + z_i) * 16; //DRP
   vtkm::Id offset = (z_i * ncoeff + r_i) * 16;
 
+  /*
   std::cout<<"InterpolatePsi: "<<ptRZ<<std::endl;
   std::cout<<"  i/j= "<<r_i<<" "<<z_i<<std::endl;
   std::cout<<"  ncoeff= "<<ncoeff<<std::endl;
   std::cout<<"  offset= "<<offset<<std::endl;
   std::cout<<"  Rc/Zc= "<<Rc<<" "<<Zc<<std::endl;
+  */
 
   vtkm::FloatDefault dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
   EvalBicub2(ptRZ[0], ptRZ[1], Rc, Zc, offset, coeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
@@ -1546,12 +1417,13 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
   auto dPsi = (psiMax-psiMin) / static_cast<vtkm::FloatDefault>(numPts-1);
 
   const vtkm::FloatDefault dR = 0.005;
+  vtkm::Id numThetas = static_cast<vtkm::Id>(thetas.size());
   for (std::size_t i = 0; i < thetas.size(); i++)
   {
     auto theta = thetas[i];
     auto cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
 
-    std::cout<<"Theta_"<<i<<" = "<<theta<<" psiN: "<<psiNorm0<<" "<<psiNorm1<<std::endl;
+    //std::cout<<"Theta_"<<i<<" = "<<theta<<" psiN: "<<psiNorm0<<" "<<psiNorm1<<std::endl;
 
     auto psiTarget = psiMin;
     vtkm::FloatDefault r0 = 0;
@@ -1560,7 +1432,7 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
       vtkm::FloatDefault r1 = r0;
       vtkm::FloatDefault psi = 0;
 
-      std::cout<<" PsiTarget= "<<psiTarget<<std::endl;
+      //std::cout<<" PsiTarget= "<<psiTarget<<std::endl;
       vtkm::FloatDefault R, Z;
 
       r1 = r0+dR;
@@ -1570,7 +1442,7 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
         R = xgcParams.eq_axis_r + r1*cost;
         Z = xgcParams.eq_axis_z + r1*sint;
         psi = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-        std::cout<<"R: "<<r0<<" "<<r1<<" --> "<<vtkm::Vec2f(R,Z)<<" psi(r1)= "<<std::setprecision(15)<<psi<<std::endl;
+        //std::cout<<"R: "<<r0<<" "<<r1<<" --> "<<vtkm::Vec2f(R,Z)<<" psi(r1)= "<<std::setprecision(15)<<psi<<std::endl;
         if (psi >= psiTarget)
         {
           found = true;
@@ -1600,11 +1472,11 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
       }
 */
       auto diffPsi = psi - psiTarget;
-      std::cout<<"   Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
-      std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
+      //std::cout<<"   Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
+      //std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
 
 
-      std::cout<<std::setprecision(15)<<"  psiTarget= "<<psiTarget<<"  psi= "<<psi<<std::endl;
+      //std::cout<<std::setprecision(15)<<"  psiTarget= "<<psiTarget<<"  psi= "<<psi<<std::endl;
       //Now, do a binary search to find psi between (r0, r1)
       int cnt = 0;
       while (diffPsi > 1e-10 && cnt < 100)
@@ -1612,130 +1484,31 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
         auto rMid = (r0+r1)/2.0;
         R = xgcParams.eq_axis_r + rMid*cost;
         Z = xgcParams.eq_axis_z + rMid*sint;
-        auto psiMid = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+        psi = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
 
-        if (psiMid < psiTarget) // mid is inside, range = (rmid, r1)
+        if (psi < psiTarget) // mid is inside, range = (rmid, r1)
           r0 = rMid;
         else
           r1 = rMid;  //mid is outside, range = (r0, rmid)
 
-        diffPsi = vtkm::Abs(psiMid - psiTarget);
-        std::cout<<std::setprecision(15)<<"        "<<cnt<<":  R=("<<r0<<" "<<r1<<")  psi= "<<std::setprecision(15)<<psi<<" "<<dPsi<<std::endl;
+        diffPsi = vtkm::Abs(psi - psiTarget);
+        //std::cout<<std::setprecision(15)<<"        "<<cnt<<":  R=("<<r0<<" "<<r1<<")  psi= "<<std::setprecision(15)<<psi<<" "<<dPsi<<std::endl;
         cnt++;
       }
 
+      //std::cout<<"   **** Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
+      //std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
+      //std::cout<<"CNT= "<<cnt<<std::setprecision(15)<<" dPsi= "<<dPsi<<std::endl;
 
-
-      std::cout<<"   **** Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
-      std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
-
+      vtkm::Id ID = j*numThetas + i; //i * numPts + j;
+      //std::cout<<i<<" "<<j<<" ID: "<<ID<<" PT= "<<(psi/xgcParams.eq_x_psi)<<" "<<theta<<std::endl;
       vtkm::Vec3f pt_rpz(R, 0, Z);
-      seeds.push_back({pt_rpz, j});
+      seeds.push_back({pt_rpz, ID});
 
       psiTarget += dPsi;
-
-/*
-      //auto psi_0 = InterpolatePsi(p0, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-
-      vtkm::FloatDefault psi_i = 0;
-      vtkm::FloatDefault R = xgcParams.eq_axis_r + r*cost;
-      vtkm::FloatDefault Z = xgcParams.eq_axis_z + r*sint;
-      //Iterate by dR to find a window: psi0 > psi <= psi1
-      while (psi_i < psi)
-      {
-        R = xgcParams.eq_axis_r + r*cost;
-        Z = xgcParams.eq_axis_z + r*sint;
-        vtkm::Vec2f pt_i(R, Z);
-        psi_i = InterpolatePsi(pt_i, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-        r += dR;
-      }
-      auto diffPsi = psi - psi_i;
-
-      std::cout<<"   Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi_i /xgcParams.eq_x_psi;
-      std::cout<<std::setprecision(15)<<" diff= "<<diffPsi<<std::endl;
-
-      vtkm::Vec3f pt_rpz(R, 0, Z);
-      seeds.push_back({pt_rpz, j});
-      psi += dPsi;
-      r0 = r;
-*/
     }
   }
   return seeds;
-
-
-#if 0
-  for (int i = 0; i < numPts; i++)
-  {
-    std::cout<<"Pt_"<<i<<" = psi= "<<psi<<" psiN= "<<(psi/xgcParams.eq_x_psi)<<std::endl;
-
-    vtkm::Id pid = static_cast<vtkm::Id>(i);
-
-    for (vtkm::Id j = 0; j < thetaPortal.GetNumberOfValues(); j++)
-    {
-      if (j != 9) continue;
-
-      vtkm::FloatDefault rad0 = 1e-8, rad1 = maxRPortal.Get(j);
-      auto theta = thetaPortal.Get(j);
-      auto cost = vtkm::Cos(theta), sint = vtkm::Sin(theta);
-
-      vtkm::Vec2f p0(xgcParams.eq_axis_r + rad0*cost, xgcParams.eq_axis_z + rad0*sint);
-      vtkm::Vec2f p1(xgcParams.eq_axis_r + rad1*cost, xgcParams.eq_axis_z + rad1*sint);
-      auto psi_0 = InterpolatePsi(p0, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-      auto psi_1 = InterpolatePsi(p1, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-      auto psiN_0 = psi_0 / xgcParams.eq_x_psi;
-      auto psiN_1 = psi_1 / xgcParams.eq_x_psi;
-      std::cout<<"  Theta_"<<j<<"= "<<theta<<" rad= "<<rad0<<" "<<rad1<<" psi= ("<<psi_0<<" "<<psi_1<<") n= ("<<psiN_0<<" "<<psiN_1<<")"<<std::endl;
-      std::cout<<"     p0= "<<p0<<" "<<p1<<std::endl;
-      std::cout<<"      c/s = "<<cost<<" "<<sint<<std::endl;
-
-      //This won't find a solution (point near x point)
-      if (psi_1 < psi)
-      {
-        std::cout<<"********* This will not converge!"<<std::endl;
-        std::cout<<"  MaxR= "<<rad1<<std::endl;
-
-        for (vtkm::FloatDefault r = rad0; r < 2*rad1; r += 0.01)
-        {
-          vtkm::Vec2f pt(xgcParams.eq_axis_r + r*cost, xgcParams.eq_axis_z + r*sint);
-          auto p = InterpolatePsi(p1, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-          std::cout<<std::setprecision(15)<<"    r_i= "<<r<<" psi= "<<p<<" "<<p/xgcParams.eq_x_psi<<" pt= "<<pt<<std::endl;
-
-          vtkm::Vec3f pt_rpz(pt[0], 0, pt[1]);
-          seeds.push_back({pt_rpz, 0});
-        }
-
-        continue;
-      }
-
-      do
-      {
-        vtkm::FloatDefault rmid = (rad0+rad1) / 2.0;
-
-        vtkm::Vec2f pt(xgcParams.eq_axis_r + rmid*cost, xgcParams.eq_axis_z + rmid*sint);
-        auto psimid = InterpolatePsi(pt,  coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-        std::cout<<"     "<<rmid<<" ("<<rad0<<" "<<rad1<<") psimid= "<<psimid<<" "<<psimid/xgcParams.eq_x_psi<<std::endl;
-
-        if (psimid < psi) // mid is inside, set range to (radmid, rad1)
-          rad0 = rmid;
-        else
-          rad1 = rmid;   // mid is outside, set range to (rad0, radmid)
-      }
-      while ((rad1-rad0) > 1e-8);
-
-      vtkm::FloatDefault r = (rad0+rad1)/2.0;
-      vtkm::Vec3f pt_rpz(xgcParams.eq_axis_r + r*cost, 0, xgcParams.eq_axis_z + r*sint);
-      seeds.push_back({pt_rpz, pid});
-      std::cout<<"   PSI_pt: "<<psi<<" "<<theta<<" id= "<<pid<<std::endl;
-
-      auto psi_ = InterpolatePsi({pt_rpz[0], pt_rpz[2]},  coeff, ncoeff, nrz, rzmin, drz, xgcParams);
-      std::cout<<"   "<<pt_rpz<<"  psiN= "<<psi_/xgcParams.eq_x_psi<<std::endl<<std::endl<<std::endl;
-    }
-    psi += dPsi;
-  }
-
-  return seeds;
-#endif
 }
 
 vtkm::cont::ArrayHandle<vtkm::Particle>
@@ -1839,6 +1612,8 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
       skip = std::atoi(vals[1].c_str());
 
     std::cout<<"Reading seeds from "<<fname<<" skip= "<<skip<<std::endl;
+    if (adios == nullptr)
+      adios = new adios2::ADIOS;
 
     auto io = adios2::IO(adios->DeclareIO("seedsIO"));
     auto engine = io.Open(fname, adios2::Mode::Read);
@@ -1892,7 +1667,6 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
   std::cout<<" ****** Num Seeds= "<<seeds.size()<<std::endl;
 
   auto seedsArray = vtkm::cont::make_ArrayHandle(seeds, vtkm::CopyFlag::On);
-
   return seedsArray;
 }
 
@@ -1911,6 +1685,7 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
   adiosStuff["data"] = new adiosS(adios, fName, "3d", adiosArgs);
   auto dataStuff = adiosStuff["data"];
 
+  vtkm::cont::ArrayHandle<vtkm::Particle> seeds;
   adios2::StepStatus status;
   int step = 0;
   while (true)
@@ -1945,10 +1720,14 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
     std::cout<<step<<": Read data timeStep= "<<timeStep<<std::endl;
     dataStuff->engine.EndStep();
 
-    auto seeds = GenerateSeeds(ds, xgcParams, args);
+    vtkm::cont::ArrayHandle<vtkm::Particle> seedsCopy;
+    if (step == 0) //create the seeds...
+      seeds = GenerateSeeds(ds, xgcParams, args);
+
+    vtkm::cont::ArrayCopy(seeds, seedsCopy);
 
     std::cout<<"Dump to "<<outputFile<<std::endl;
-    Poincare(ds, xgcParams, seeds, args, timeStep);
+    Poincare(ds, xgcParams, seedsCopy, args, timeStep);
 
     step++;
   }

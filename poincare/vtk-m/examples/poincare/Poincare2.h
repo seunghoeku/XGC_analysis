@@ -115,9 +115,10 @@ public:
   PoincareWorklet2(vtkm::Id maxPunc,
                    vtkm::FloatDefault planeVal,
                    vtkm::FloatDefault stepSize,
+                   vtkm::Id maxStepsPerPunc,
                    bool saveTraces,
                    const XGCParameters& xgcParams)
-    : MaxIter(maxPunc * 1000000)
+    : MaxIter(maxPunc * maxStepsPerPunc)
     , MaxPunc(maxPunc)
     , PlaneVal(planeVal)
     , StepSize(stepSize)
@@ -150,11 +151,28 @@ public:
     this->one_d_cub_dpsi_inv = 1.0 / ((this->max_psi-this->min_psi)/vtkm::FloatDefault(this->ncoeff));
   }
 
-  template <typename Coeff_1DType, typename Coeff_2DType>
+  template <typename T>
+  using WholeArrayType = vtkm::exec::ExecutionWholeArray<T, vtkm::cont::StorageTagBasic>;
+  template <typename T>
+  using WholeArrayInType = vtkm::exec::ExecutionWholeArrayConst<T, vtkm::cont::StorageTagBasic>;
+  using CellSetType = vtkm::exec::ConnectivityExplicit<vtkm::internal::ArrayPortalImplicit<vtkm::cont::internal::ConstantFunctor<unsigned char>>,
+                                                       vtkm::internal::ArrayPortalBasicRead<vtkm::Id>,
+                                                       vtkm::cont::internal::ArrayPortalCounting<vtkm::Id>>;
+
+  using LocatorType = vtkm::exec::CellLocatorMultiplexer<vtkm::exec::CellLocatorTwoLevel<vtkm::exec::ConnectivityStructured<vtkm::TopologyElementTagCell, vtkm::TopologyElementTagPoint, 2> >,
+                                                         vtkm::exec::CellLocatorTwoLevel<vtkm::exec::ConnectivityStructured<vtkm::TopologyElementTagCell, vtkm::TopologyElementTagPoint, 3> >,
+                                                         vtkm::exec::CellLocatorTwoLevel<vtkm::exec::ConnectivityExplicit<vtkm::internal::ArrayPortalBasicRead<unsigned char>,
+                                                                                                                          vtkm::internal::ArrayPortalBasicRead<long long int>,
+                                                                                                                              vtkm::internal::ArrayPortalBasicRead<long long int> > >,
+                                                         vtkm::exec::CellLocatorTwoLevel<vtkm::exec::ConnectivityExplicit<vtkm::internal::ArrayPortalImplicit<vtkm::cont::internal::ConstantFunctor<unsigned char> >,
+                                                                                                                          vtkm::internal::ArrayPortalBasicRead<long long int>, vtkm::cont::internal::ArrayPortalCounting<long long int>>>>;
+
+
+
   VTKM_EXEC
   vtkm::Vec3f HighOrderBOnly(const vtkm::Vec3f& ptRPZ,
-                             const Coeff_1DType& Coeff_1D,
-                             const Coeff_2DType& Coeff_2D) const
+                             const WholeArrayInType<vtkm::FloatDefault>& Coeff_1D,
+                             const WholeArrayInType<vtkm::FloatDefault>& Coeff_2D) const
   {
     vtkm::FloatDefault R = ptRPZ[0], Z = ptRPZ[2];
     vtkm::Vec3f ptRZ(R,Z,0);
@@ -184,7 +202,6 @@ public:
     */
 
     vtkm::FloatDefault psi, dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
-    //this->eval_bicub_2(R, Z, Rc, Zc, acoeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
     this->EvalBicub2(R, Z, Rc, Zc, offset, Coeff_2D, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
 
     vtkm::FloatDefault fld_I = this->I_interpol(psi, 0, Coeff_1D);
@@ -197,12 +214,11 @@ public:
     return vtkm::Vec3f(Br, Bz, Bp);
   }
 
-  template <typename Coeff_1DType, typename Coeff_2DType>
   VTKM_EXEC
   bool HighOrderB(const vtkm::Vec3f& ptRPZ,
                   ParticleInfo& pInfo,
-                  const Coeff_1DType& Coeff_1D,
-                  const Coeff_2DType& Coeff_2D) const
+                  const WholeArrayInType<vtkm::FloatDefault>& Coeff_1D,
+                  const WholeArrayInType<vtkm::FloatDefault>& Coeff_2D) const
   {
     vtkm::FloatDefault R = ptRPZ[0], Z = ptRPZ[2];
     vtkm::Vec3f ptRZ(R,Z,0);
@@ -243,7 +259,6 @@ public:
     */
 
     vtkm::FloatDefault psi, dpsi_dr, dpsi_dz, d2psi_d2r, d2psi_drdz, d2psi_d2z;
-    //this->eval_bicub_2(R, Z, Rc, Zc, acoeff, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
     this->EvalBicub2(R, Z, Rc, Zc, offset, Coeff_2D, psi,dpsi_dr,dpsi_dz,d2psi_drdz,d2psi_d2r,d2psi_d2z);
     pInfo.Psi = psi;
     //PSI = psi;
@@ -389,22 +404,21 @@ public:
     return true;
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename BFieldType, typename PsiType, typename OutputType, typename OutputType2D, typename IdType>
   VTKM_EXEC void operator()(const vtkm::Id& idx,
                             vtkm::Particle& particle,
                             const LocatorType& locator,
                             const CellSetType& cellSet,
-                            const CoordsType& coords,
-                            const AsFieldType& AsPhiFF,
-                            const DAsFieldType& DAsPhiFF_RZP,
-                            const Coeff_1DType& Coeff_1D,
-                            const Coeff_2DType& Coeff_2D,
-                            const BFieldType& B_RZP,
-                            const PsiType& Psi,
-                            OutputType& traces,
-                            OutputType2D& outputRZ,
-                            OutputType2D& outputTP,
-                            IdType punctureID) const
+                            const WholeArrayInType<vtkm::Vec3f>& coords,
+                            const WholeArrayInType<vtkm::FloatDefault>& AsPhiFF,
+                            const WholeArrayInType<vtkm::Vec3f>& DAsPhiFF_RZP,
+                            const WholeArrayInType<vtkm::FloatDefault>& Coeff_1D,
+                            const WholeArrayInType<vtkm::FloatDefault>& Coeff_2D,
+                            const WholeArrayInType<vtkm::Vec3f>& B_RZP,
+                            const WholeArrayInType<vtkm::FloatDefault>& Psi,
+                            WholeArrayType<vtkm::Vec3f>& traces,
+                            WholeArrayType<vtkm::Vec2f>& outputRZ,
+                            WholeArrayType<vtkm::Vec2f>& outputTP,
+                            WholeArrayType<vtkm::Id> punctureID) const
   {
 #ifdef VALGRIND
     CALLGRIND_START_INSTRUMENTATION;
@@ -509,7 +523,7 @@ public:
       if (particle.NumSteps >= this->MaxIter || particle.NumPunctures >= this->MaxPunc)
       {
 #if !defined(VTKM_CUDA) && !defined(VTKM_HIP)
-        std::cout<<"************************************* All done: id= "<<particle.ID<<" #Punc= "<<particle.NumPunctures<<std::endl;
+        std::cout<<"************************************* All done: id= "<<particle.ID<<" #Punc= "<<particle.NumPunctures<<" #steps= "<<particle.NumSteps<<std::endl;
 #endif
         break;
       }
@@ -525,18 +539,18 @@ public:
 #endif
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename BFieldType>
+  //template <typename LocatorType>
   VTKM_EXEC
   bool TakeRK4Step(const vtkm::Vec3f& ptRPZ,
                    ParticleInfo& pInfo,
                    const LocatorType& locator,
                    const CellSetType& cellSet,
-                   const CoordsType& coords,
-                   const AsFieldType& AsPhiFF,
-                   const DAsFieldType& DAsPhiFF_RZP,
-                   const Coeff_1DType& Coeff_1D,
-                   const Coeff_2DType& Coeff_2D,
-                   const BFieldType& B_RZP,
+                   const WholeArrayInType<vtkm::Vec3f>& coords,
+                   const WholeArrayInType<vtkm::FloatDefault>& AsPhiFF,
+                   const WholeArrayInType<vtkm::Vec3f>& DAsPhiFF_RZP,
+                   const WholeArrayInType<vtkm::FloatDefault>& Coeff_1D,
+                   const WholeArrayInType<vtkm::FloatDefault>& Coeff_2D,
+                   const WholeArrayInType<vtkm::Vec3f>& B_RZP,
                    vtkm::Vec3f& res) const
   {
     vtkm::Vec3f k1, k2, k3, k4;
@@ -576,10 +590,9 @@ public:
     return true;
   }
 
-  template <typename PortalType>
   VTKM_EXEC
   vtkm::FloatDefault
-  EvalS(const PortalType& sPortal,
+  EvalS(const WholeArrayInType<vtkm::FloatDefault>& sPortal,
         const vtkm::Id& offset,
         const vtkm::Vec<vtkm::Id, 3>& vId,
         const vtkm::Vec3f& param) const
@@ -605,10 +618,9 @@ public:
     return s;
   }
 
-  template <typename PortalType>
   VTKM_EXEC
   vtkm::Vec3f
-  EvalV(const PortalType& vPortal,
+  EvalV(const WholeArrayInType<vtkm::Vec3f>& vPortal,
         const vtkm::Id& offset,
         const vtkm::Vec3f& param,
         const vtkm::Vec<vtkm::Id, 3>& vId) const
@@ -651,12 +663,12 @@ public:
              l1Grid.BinSize / static_cast<FloatVec3>(dim) };
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType>
+  //template <typename LocatorType>
   VTKM_EXEC
   vtkm::ErrorCode FindCell2(const vtkm::Vec3f& point,
                             const LocatorType& locator,
                             const CellSetType& cellSet,
-                            const CoordsType& coords,
+                            const WholeArrayInType<vtkm::Vec3f>& coords,
                             vtkm::Id& cellId,
                             vtkm::Vec3f& parametric,
                             vtkm::Id3& prevCell) const
@@ -698,7 +710,7 @@ public:
         auto pts = vtkm::make_VecFromPortalPermute(&indices, coords);
         vtkm::Vec3f pc;
         bool inside;
-        PointInsideCell(point, cellSet.GetCellShape(cid), pts, pc, inside);
+        PointInsideCell(point, /*cellSet.GetCellShape(cid),*/ pts, pc, inside);
         if (inside)
         {
           prevCell[0] = start;
@@ -716,8 +728,10 @@ public:
     return vtkm::ErrorCode::CellNotFound;
   }
 
-  template <typename PointsVecType>
-  VTKM_EXEC inline bool InCellBounds(const PointsVecType& points, const vtkm::Vec3f& pt) const
+  VTKM_EXEC inline
+  bool InCellBounds(const vtkm::VecFromPortalPermute<vtkm::VecFromPortal<vtkm::internal::ArrayPortalBasicRead<vtkm::Id> >,
+                                vtkm::exec::ExecutionWholeArrayConst<vtkm::Vec3f, vtkm::cont::StorageTagBasic>> & points,
+                    const vtkm::Vec3f& pt) const
   {
     vtkm::Vec2f minP, maxP;
     minP[0] = maxP[0] = points[0][0];
@@ -742,12 +756,12 @@ public:
     return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
   }
 
-  template <typename CellShapeTag, typename CoordsType>
-  VTKM_EXEC bool PointInsideCell(const vtkm::Vec3f& point,
-                                 const CellShapeTag& /*cellShape*/,
-                                 const CoordsType& cellPoints,
-                                 vtkm::Vec3f& parametricCoordinates,
-                                 bool& inside) const
+  VTKM_EXEC bool
+  PointInsideCell(const vtkm::Vec3f& point,
+                  const vtkm::VecFromPortalPermute<vtkm::VecFromPortal<vtkm::internal::ArrayPortalBasicRead<vtkm::Id> >,
+                                vtkm::exec::ExecutionWholeArrayConst<vtkm::Vec3f, vtkm::cont::StorageTagBasic>> & cellPoints,
+                  vtkm::Vec3f& parametricCoordinates,
+                  bool& inside) const
   {
     inside = this->InCellBounds(cellPoints, point);
     if (inside)
@@ -773,13 +787,13 @@ public:
     return true;
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType>
+  //template <typename LocatorType>
   VTKM_EXEC
   bool FindCell(const vtkm::Vec3f& ptRZ,
                 ParticleInfo& pInfo,
                 const LocatorType& locator,
                 const CellSetType& cellSet,
-                const CoordsType& coords,
+                const WholeArrayInType<vtkm::Vec3f>& coords,
                 vtkm::Vec3f& param,
                 vtkm::Id& cellId) const
   {
@@ -795,7 +809,7 @@ public:
       auto pts = vtkm::make_VecFromPortalPermute(&indices, coords);
       vtkm::Vec3f pc;
       bool inside;
-      this->PointInsideCell(ptRZ, cellSet.GetCellShape(prevCell[2]), pts, pc, inside);
+      this->PointInsideCell(ptRZ, /*cellSet.GetCellShape(prevCell[2]),*/ pts, pc, inside);
       if (inside)
       {
         cellId = prevCell[2];
@@ -812,7 +826,7 @@ public:
         {
           auto indices2 = cellSet.GetIndices(cid);
           auto pts2 = vtkm::make_VecFromPortalPermute(&indices2, coords);
-          this->PointInsideCell(ptRZ, cellSet.GetCellShape(prevCell[2]), pts2, pc, inside);
+          this->PointInsideCell(ptRZ, /*cellSet.GetCellShape(prevCell[2]),*/ pts2, pc, inside);
           if (inside)
           {
 //            std::cout<<"  "<<(i-prevCell[0])<<" -FindCell: "<<prevCell<<"  cid= "<<cid<<" len= "<<prevCell[1]-prevCell[0]<<std::endl;
@@ -830,13 +844,14 @@ public:
     return (this->FindCell2(ptRZ, locator, cellSet, coords, cellId, param, prevCell) == vtkm::ErrorCode::Success);
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType>
+  /*
+  template <typename LocatorType>
   VTKM_EXEC
   bool PtLoc2(const vtkm::Vec3f& ptRZ,
               ParticleInfo& pInfo,
               const LocatorType& locator,
               const CellSetType& cs,
-              const CoordsType& coords,
+              const WholeArrayInType<vtkm::Vec3f>& coords,
               vtkm::Vec3f& param,
               vtkm::Vec<vtkm::Id, 3>& vIds) const
   {
@@ -851,14 +866,15 @@ public:
 
     return true;
   }
+  */
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType>
+  //template <typename LocatorType>
   VTKM_EXEC
   bool PtLoc(const vtkm::Vec3f& ptRZ,
              ParticleInfo& pInfo,
              const LocatorType& locator,
              const CellSetType& cs,
-             const CoordsType& coords,
+             const WholeArrayInType<vtkm::Vec3f>& /*coords*/,
              vtkm::Vec3f& param,
              vtkm::Vec<vtkm::Id, 3>& vIds) const
   {
@@ -870,6 +886,7 @@ public:
       return false;
     }
 
+#if 0
     if (0)
     {
       vtkm::Vec3f p2;
@@ -881,6 +898,7 @@ public:
       //if (cid2 != cellId) std::cout<<" **************************** WRONG"<<std::endl;
       //if (vtkm::Magnitude(p2-param) > 1e-10) std::cout<<" **************************** WRONG"<<std::endl;
     }
+#endif
 
     //vtkm::VecVariable<vtkm::Id, 3> tmp;
     auto tmp =  cs.GetIndices(cellId);
@@ -903,14 +921,13 @@ public:
 
   }
 
-  template <typename Coeff_2DType>
   VTKM_EXEC
   void EvalBicub2(const vtkm::FloatDefault& x,
                   const vtkm::FloatDefault& y,
                   const vtkm::FloatDefault& xc,
                   const vtkm::FloatDefault& yc,
                   const vtkm::Id& offset,
-                  const Coeff_2DType& Coeff_2D,
+                  const WholeArrayInType<vtkm::FloatDefault>& Coeff_2D,
                   vtkm::FloatDefault &f00, vtkm::FloatDefault &f10, vtkm::FloatDefault &f01,
                   vtkm::FloatDefault &f11, vtkm::FloatDefault &f20, vtkm::FloatDefault &f02) const
   {
@@ -969,6 +986,7 @@ public:
     }
   }
 
+#if 0
   VTKM_EXEC
   bool eval_bicub_2(const vtkm::FloatDefault& x,
                     const vtkm::FloatDefault& y,
@@ -1087,12 +1105,12 @@ public:
     //printf("  worklet %d\n", __LINE__);
     return true;
   }
+#endif
 
-  template <typename Coeff_1DType>
   VTKM_EXEC
   vtkm::FloatDefault I_interpol(const vtkm::FloatDefault& psi,
                                 const int& ideriv,
-                                const Coeff_1DType& coeff_1D) const
+                                const WholeArrayInType<vtkm::FloatDefault>& coeff_1D) const
   {
     vtkm::FloatDefault pn = psi * this->one_d_cub_dpsi_inv;
     int ip=floor(pn);
@@ -1121,26 +1139,11 @@ public:
     return iVal * this->sml_bp_sign;
   }
 
-  template <typename Coeff_1DType, typename Coeff_2DType>
   VTKM_EXEC
   vtkm::Vec3f GetB(vtkm::Vec3f& pt_rpz,
-                   ParticleInfo& /*pInfo*/,
-                   const Coeff_1DType& coeff_1D,
-                   const Coeff_2DType& coeff_2D) const
+                   const WholeArrayInType<vtkm::FloatDefault>& coeff_1D,
+                   const WholeArrayInType<vtkm::FloatDefault>& coeff_2D) const
   {
-#if 0
-    this->HighOrderB(pt_rpz, pInfo, coeff_1D, coeff_2D);
-    //This gives is the time derivative: Br = dR/dt, Bz= dZ/dt, B_phi/R = dphi/dt
-    //We need with respect to phi:
-    // dR/dphi = dR/dt / (dphi/dt) = Br / B_phi * R
-    // same for z;
-    vtkm::Vec3f B0_rpz(pInfo.B0_rzp[0], pInfo.B0_rzp[2], pInfo.B0_rzp[1]);
-    B0_rpz[0] /= pInfo.B0_rzp[2];
-    B0_rpz[2] /= pInfo.B0_rzp[2];
-    B0_rpz[0] *= pt_rpz[0];
-    B0_rpz[2] *= pt_rpz[0];
-    return B0_rpz;
-#else
     auto B0_rzp = this->HighOrderBOnly(pt_rpz, coeff_1D, coeff_2D);
 
     vtkm::Vec3f B0_rpz(B0_rzp[0], B0_rzp[2], B0_rzp[1]);
@@ -1155,18 +1158,15 @@ public:
     B0_rpz[0] *= pt_rpz[0];
     B0_rpz[2] *= pt_rpz[0];
     return B0_rpz;
-#endif
   }
 
-  template <typename Coeff_1DType, typename Coeff_2DType>
   VTKM_EXEC
   bool CalcFieldFollowingPt(const vtkm::Vec3f& pt_rpz,
-                            const ParticleInfo& pInfo,
                             const vtkm::Vec3f& B0_rpz,
                             const vtkm::FloatDefault& Phi0,
                             const vtkm::FloatDefault& Phi1,
-                            const Coeff_1DType& coeff_1D,
-                            const Coeff_2DType& coeff_2D,
+                            const WholeArrayInType<vtkm::FloatDefault>& coeff_1D,
+                            const WholeArrayInType<vtkm::FloatDefault>& coeff_2D,
                             vtkm::Vec3f& x_ff_rpz) const
   {
     vtkm::FloatDefault R = pt_rpz[0];
@@ -1196,19 +1196,18 @@ public:
     vtkm::Vec3f p0 = {R,Phi,Z}; //pt_rpz;
     vtkm::Vec3f tmp, k1, k2, k3, k4;
     //std::cout<<"     p0 = "<<p0<<std::endl;
-    ParticleInfo pInfo2 = pInfo;
     for (int i = 0; i < 2; i++)
     {
-      k1 = this->GetB(p0, pInfo2, coeff_1D, coeff_2D);
+      k1 = this->GetB(p0, coeff_1D, coeff_2D);
       tmp = p0 + k1*h_2;
 
-      k2 = this->GetB(tmp, pInfo2, coeff_1D, coeff_2D);
+      k2 = this->GetB(tmp, coeff_1D, coeff_2D);
       tmp = p0 + k2*h_2;
 
-      k3 = this->GetB(tmp, pInfo2, coeff_1D, coeff_2D);
+      k3 = this->GetB(tmp, coeff_1D, coeff_2D);
       tmp = p0 + k3*h;
 
-      k4 = this->GetB(tmp, pInfo2, coeff_1D, coeff_2D);
+      k4 = this->GetB(tmp, coeff_1D, coeff_2D);
 
       vtkm::Vec3f vec = (k1 + 2*k2 + 2*k3 + k4) / 6.0;
       p0 = p0 + h * vec;
@@ -1219,18 +1218,18 @@ public:
     return true;
   }
 
-  template <typename LocatorType, typename CellSetType, typename CoordsType, typename AsFieldType, typename DAsFieldType, typename Coeff_1DType, typename Coeff_2DType, typename BFieldType>
+  //template <typename LocatorType>
   VTKM_EXEC
   bool Evaluate(const vtkm::Vec3f& ptRPZ,
                 ParticleInfo& pInfo,
                 const LocatorType& locator,
                 const CellSetType& cellSet,
-                const CoordsType& coords,
-                const AsFieldType& AsPhiFF,
-                const DAsFieldType& DAsPhiFF_RZP,
-                const Coeff_1DType& coeff_1D,
-                const Coeff_2DType& coeff_2D,
-                const BFieldType& B_RZP,
+                const WholeArrayInType<vtkm::Vec3f>& coords,
+                const WholeArrayInType<vtkm::FloatDefault>& AsPhiFF,
+                const WholeArrayInType<vtkm::Vec3f>& DAsPhiFF_RZP,
+                const WholeArrayInType<vtkm::FloatDefault>& coeff_1D,
+                const WholeArrayInType<vtkm::FloatDefault>& coeff_2D,
+                const WholeArrayInType<vtkm::Vec3f>& B_RZP,
                 vtkm::Vec3f& res) const
   {
     auto R = ptRPZ[0];
@@ -1267,7 +1266,7 @@ public:
     }
     vtkm::Vec3f B0_rpz(pInfo.B0_rzp[0], pInfo.B0_rzp[2], pInfo.B0_rzp[1]);
     vtkm::Vec3f ff_pt_rpz;
-    this->CalcFieldFollowingPt({R,phiN,Z}, pInfo, B0_rpz, Phi0, Phi1, coeff_1D, coeff_2D, ff_pt_rpz);
+    this->CalcFieldFollowingPt({R,phiN,Z}, B0_rpz, Phi0, Phi1, coeff_1D, coeff_2D, ff_pt_rpz);
 
     //Now, interpolate between Phi_i and Phi_i+1
     vtkm::FloatDefault T01 = (phiN - Phi0) / (Phi1-Phi0);

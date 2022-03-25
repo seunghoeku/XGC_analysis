@@ -1,4 +1,5 @@
 #include <vtkm/Particle.h>
+#include <vtkm/cont/ArrayCopy.h>
 
 #include "XGCParameters.h"
 #include "RunPoincare2.h"
@@ -44,8 +45,10 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
     validateInterpSkip = static_cast<vtkm::Id>(std::stoi(args["--validateInterpolation"][0].c_str()));
   }
 
+  auto cellSet = ds.GetCellSet().Cast<vtkm::cont::CellSetSingleType<>>();
+
   vtkm::cont::CellLocatorTwoLevel locator2L;
-  locator2L.SetCellSet(ds.GetCellSet());
+  locator2L.SetCellSet(cellSet);
   locator2L.SetCoordinates(ds.GetCoordinateSystem());
   auto startL = std::chrono::steady_clock::now();
   locator2L.Update();
@@ -58,7 +61,11 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
 
   vtkm::cont::Invoker invoker;
 
-  PoincareWorklet2 worklet(numPunc, 0.0f, stepSize, useTraces, xgcParams);
+  vtkm::Id maxItersPerPunc = 2500;
+  if (args.find("--MaxItersPerPunc") != args.end())
+    maxItersPerPunc = std::stoi(args["--MaxItersPerPunc"][0].c_str());
+
+  PoincareWorklet2 worklet(numPunc, 0.0f, stepSize, maxItersPerPunc, useTraces, xgcParams);
   worklet.UseBOnly = useBOnly;
 
   worklet.one_d_cub_dpsi_inv = 1.0/dPsi;
@@ -74,10 +81,12 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
     tracesArr = vtkm::cont::make_ArrayHandle(t, vtkm::CopyFlag::On);
   }
 
+  vtkm::cont::ArrayHandle<vtkm::Vec3f> coords;
+  vtkm::cont::ArrayCopy(ds.GetCoordinateSystem().GetData(), coords);
+
   invoker(worklet, seeds,
           locator2L,
-          ds.GetCellSet(),
-          ds.GetCoordinateSystem(),
+          cellSet, coords,
           As_ff, dAs_ff_rzp, coeff_1D, coeff_2D,
           B_RZP, psi,
           tracesArr, outRZ, outTP, outID);
