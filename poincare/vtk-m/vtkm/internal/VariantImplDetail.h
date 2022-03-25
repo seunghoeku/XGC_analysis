@@ -776,7 +776,18 @@ VTK_M_DEVICE inline ReturnType VariantCastAndCallImplR(
 }
 
 template <typename ReturnType, typename Functor, typename UnionType, typename... Args>
-VTK_M_DEVICE inline ReturnType VariantCastAndCallImplR(
+VTK_M_DEVICE
+#ifdef VTKM_HIP
+// this is a temporary solution to improve Kokkos/HIP compile times for
+// ConnectivityTracer in Rendering.
+//
+// This function currently gets inlined many times, which dramatically increases
+// both compile time and the size of the resulting code-object
+__attribute__((noinline))
+#else
+inline
+#endif
+ ReturnType VariantCastAndCallImplR(
   std::false_type,
   vtkm::IdComponent index,
   Functor&& f,
