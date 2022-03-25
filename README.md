@@ -20,7 +20,7 @@ CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH="$ADIOS_DIR;$CAMTIMER_DIR" ..
 ```
 
 # Command line options
-``
+```
 $ diffusion/diffusion -h
 Allowed options:
   -h [ --help ]             produce help message
