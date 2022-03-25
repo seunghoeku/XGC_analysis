@@ -30,4 +30,16 @@
       <parameter key="OpenTimeoutSecs" value="2100"/>
     </engine>
   </io>
+
+  <io name="SeedsIO">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
+
+  <io name="SeedsIO">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
 </adios-config>
