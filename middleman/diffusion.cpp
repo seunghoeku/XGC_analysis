@@ -22,8 +22,9 @@ inline int read_mesh(adios2::ADIOS *ad, adios2::IO &io, std::string xgcdir)
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.mesh.bp");
     LOG << "Loading: " << fname;
     reader = io.Open(fname.string(), adios2::Mode::Read, MPI_COMM_SELF);
-    auto var = io.InquireVariable<int>("n_t");
-    reader.Get<int>(var, &n_t);
+    reader.BeginStep();
+    reader.Get<int>("n_t", &n_t);
+    reader.EndStep();
     reader.Close();
 
     return n_t;
