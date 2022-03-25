@@ -154,12 +154,14 @@ public:
 
   adiosS(adios2::ADIOS *adiosPtr,
          const std::string &fn,
-         const std::string &ioNm)
+         const std::string &ioNm,
+         const adios2::Mode& mode)
     : ioName(ioNm)
     , fileName(fn)
   {
+    std::cout<<"Open: "<<this->fileName<<std::endl;
     this->io = adios2::IO(adiosPtr->DeclareIO(this->ioName));
-    this->engine = io.Open(this->fileName, adios2::Mode::Write);
+    this->engine = io.Open(this->fileName, mode);
   }
 
   ~adiosS()
@@ -628,7 +630,7 @@ SaveOutput(const std::vector<std::vector<vtkm::Vec3f>>& traces,
   bool firstTime = false;
   if (adiosStuff.find("output") == adiosStuff.end())
   {
-    adiosStuff["output"] = new adiosS(adios, adiosNm, "output");
+    adiosStuff["output"] = new adiosS(adios, adiosNm, "output", adios2::Mode::Write);
     firstTime = true;
   }
   adiosS* outputStuff = adiosStuff["output"];
@@ -1404,7 +1406,6 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
   vtkm::FloatDefault psiNorm1 = std::atof(vals[1].c_str());
   int numPts = std::atoi(vals[2].c_str());
 
-
   vtkm::cont::ArrayHandle<vtkm::FloatDefault> maxR;
   FindMaxR(ds, xgcParams, thetas, maxR);
 
@@ -1424,6 +1425,10 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
 
   const vtkm::FloatDefault dR = 0.005;
   vtkm::Id numThetas = static_cast<vtkm::Id>(thetas.size());
+  bool bothDirections = false;
+  if (args.find("--bothDirections") != args.end())
+    bothDirections = true;
+
   for (std::size_t i = 0; i < thetas.size(); i++)
   {
     auto theta = thetas[i];
@@ -1506,10 +1511,24 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
       //std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
       //std::cout<<"CNT= "<<cnt<<std::setprecision(15)<<" dPsi= "<<dPsi<<std::endl;
 
-      vtkm::Id ID = j*numThetas + i; //i * numPts + j;
-      //std::cout<<i<<" "<<j<<" ID: "<<ID<<" PT= "<<(psi/xgcParams.eq_x_psi)<<" "<<theta<<std::endl;
+      vtkm::Id ID = j*numThetas + i;
+      if (bothDirections)
+        ID = j*numThetas*2 + i + 0;
+
+      std::cout<<i<<" "<<j<<" ID: "<<ID<<" PT= "<<(psi/xgcParams.eq_x_psi)<<" "<<theta<<std::endl;
       vtkm::Vec3f pt_rpz(R, 0, Z);
-      seeds.push_back({pt_rpz, ID});
+      vtkm::Particle p({pt_rpz, ID});
+      seeds.push_back(p);
+
+      if (bothDirections)
+      {
+        if (bothDirections)
+          ID = j*numThetas*2 + i + 1;
+        std::cout<<i<<"   RevDir: ID= "<<ID<<std::endl;
+        vtkm::Particle p2({pt_rpz, ID});
+        p2.ReverseDirection = true;
+        seeds.push_back(p2);
+      }
 
       psiTarget += dPsi;
     }
@@ -1693,7 +1712,7 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
   std::string fName = args["--streaming"][0];
   std::string outputFile = args["--output"][0];
 
-  adiosStuff["data"] = new adiosS(adios, fName, "3d", adiosArgs);
+  adiosStuff["data"] = new adiosS(adios, fName, "3d", adios2::Mode::Read);
   auto dataStuff = adiosStuff["data"];
 
   vtkm::cont::ArrayHandle<vtkm::Particle> seeds;
@@ -1710,7 +1729,11 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
 
     //Initialize the num planes variable.
     if (step == 0)
+    {
+      auto v = dataStuff->io.InquireVariable<int>("nphi");
+      if (!v) std::cout<<"Don't have nphi in "<<fName<<std::endl;
       dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
+    }
 
     int timeStep = step;
     auto tsVar = dataStuff->io.InquireVariable<int>("tindex");
