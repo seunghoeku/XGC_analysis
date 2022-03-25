@@ -19,6 +19,44 @@ CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH="$ADIOS_DIR;$CAMTIMER_DIR" ..
 
 ```
 
+# Command line options
+``
+$ diffusion/diffusion -h
+Allowed options:
+  -h [ --help ]             produce help message
+  -w [ --xgcdir ] arg       XGC directory
+  -s [ --maxstep ] arg (=0) max steps
+
+$ ./heatload/heatload -h
+Allowed options:
+  -h [ --help ]             produce help message
+  -w [ --xgcdir ] arg       XGC directory
+  -s [ --maxstep ] arg (=0) max steps
+  -f [ --freshstart ]       fresh start (no restart)
+  -i [ --ion_only ]         Ion only
+
+$ python ../panout/adios2-panout.py -h
+usage: adios2-panout.py [-h] [--outengine OUTENGINE] [--var VAR [VAR ...]] [--decomposition DECOMPOSITION [DECOMPOSITION ...]] [--append] [--npanout NPANOUT] [--start START] [-s NSTEP] infile outfile
+
+positional arguments:
+  infile                infile
+  outfile               outfile
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --outengine OUTENGINE
+                        output engine
+  --var VAR [VAR ...]   var
+  --decomposition DECOMPOSITION [DECOMPOSITION ...]
+                        var
+  --append              append mode
+  --npanout NPANOUT     npanout
+  --start START         start
+  -s NSTEP, --nstep NSTEP
+                        nstep
+
+```
+
 # Run (Summit)
 ```
 #!/bin/bash
