@@ -115,9 +115,10 @@ public:
   PoincareWorklet2(vtkm::Id maxPunc,
                    vtkm::FloatDefault planeVal,
                    vtkm::FloatDefault stepSize,
+                   vtkm::Id maxStepsPerPunc,
                    bool saveTraces,
                    const XGCParameters& xgcParams)
-    : MaxIter(maxPunc * 1000000)
+    : MaxIter(maxPunc * maxStepsPerPunc)
     , MaxPunc(maxPunc)
     , PlaneVal(planeVal)
     , StepSize(stepSize)

@@ -61,7 +61,11 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
 
   vtkm::cont::Invoker invoker;
 
-  PoincareWorklet2 worklet(numPunc, 0.0f, stepSize, useTraces, xgcParams);
+  vtkm::Id maxItersPerPunc = 2500;
+  if (args.find("--MaxItersPerPunc") != args.end())
+    maxItersPerPunc = std::stoi(args["--MaxItersPerPunc"][0].c_str());
+
+  PoincareWorklet2 worklet(numPunc, 0.0f, stepSize, maxItersPerPunc, useTraces, xgcParams);
   worklet.UseBOnly = useBOnly;
 
   worklet.one_d_cub_dpsi_inv = 1.0/dPsi;

@@ -1417,6 +1417,7 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
   auto dPsi = (psiMax-psiMin) / static_cast<vtkm::FloatDefault>(numPts-1);
 
   const vtkm::FloatDefault dR = 0.005;
+  vtkm::Id numThetas = static_cast<vtkm::Id>(thetas.size());
   for (std::size_t i = 0; i < thetas.size(); i++)
   {
     auto theta = thetas[i];
@@ -1483,25 +1484,26 @@ GeneratePsiRangeSeeds(std::map<std::string, std::vector<std::string>>& args,
         auto rMid = (r0+r1)/2.0;
         R = xgcParams.eq_axis_r + rMid*cost;
         Z = xgcParams.eq_axis_z + rMid*sint;
-        auto psiMid = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
+        psi = InterpolatePsi({R,Z}, coeff, ncoeff, nrz, rzmin, drz, xgcParams);
 
-        if (psiMid < psiTarget) // mid is inside, range = (rmid, r1)
+        if (psi < psiTarget) // mid is inside, range = (rmid, r1)
           r0 = rMid;
         else
           r1 = rMid;  //mid is outside, range = (r0, rmid)
 
-        diffPsi = vtkm::Abs(psiMid - psiTarget);
+        diffPsi = vtkm::Abs(psi - psiTarget);
         //std::cout<<std::setprecision(15)<<"        "<<cnt<<":  R=("<<r0<<" "<<r1<<")  psi= "<<std::setprecision(15)<<psi<<" "<<dPsi<<std::endl;
         cnt++;
       }
 
-
-
       //std::cout<<"   **** Pt_"<<j<<" RZ= "<<R<<" "<<Z<<"  psiN= "<<psi /xgcParams.eq_x_psi;
       //std::cout<<std::setprecision(15)<<" diff= "<<diffPsi/xgcParams.eq_x_psi<<std::endl;
+      //std::cout<<"CNT= "<<cnt<<std::setprecision(15)<<" dPsi= "<<dPsi<<std::endl;
 
+      vtkm::Id ID = j*numThetas + i; //i * numPts + j;
+      //std::cout<<i<<" "<<j<<" ID: "<<ID<<" PT= "<<(psi/xgcParams.eq_x_psi)<<" "<<theta<<std::endl;
       vtkm::Vec3f pt_rpz(R, 0, Z);
-      seeds.push_back({pt_rpz, j});
+      seeds.push_back({pt_rpz, ID});
 
       psiTarget += dPsi;
     }
