@@ -993,7 +993,13 @@ ReadStaticData(std::map<std::string, std::vector<std::string>>& args,
   std::map<std::string, std::string> adiosArgs;
   adiosArgs["--dir"] = args["--dir"][0];
 
-  adios = new adios2::ADIOS;
+  if (adios == nullptr)
+  {
+    if (args.find("--xml") == args.end())
+      adios = new adios2::ADIOS;
+    else
+      adios = new adios2::ADIOS(args["--xml"][0]);
+  }
 
   adiosStuff["mesh"] = new adiosS(adios, "xgc.mesh.bp", "mesh", adiosArgs);
   adiosStuff["equil"] = new adiosS(adios, "xgc.equil.bp", "equil", adiosArgs);
@@ -1613,7 +1619,12 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
 
     std::cout<<"Reading seeds from "<<fname<<" skip= "<<skip<<std::endl;
     if (adios == nullptr)
-      adios = new adios2::ADIOS;
+    {
+      if (args.find("--xml") == args.end())
+        adios = new adios2::ADIOS;
+      else
+        adios = new adios2::ADIOS(args["--xml"][0]);
+    }
 
     auto io = adios2::IO(adios->DeclareIO("seedsIO"));
     auto engine = io.Open(fname, adios2::Mode::Read);
@@ -1701,8 +1712,10 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
     if (step == 0)
       dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("nphi"), &xgcParams.numPlanes, adios2::Mode::Sync);
 
-    int timeStep;
-    dataStuff->engine.Get(dataStuff->io.InquireVariable<int>("tindex"), &timeStep, adios2::Mode::Sync);
+    int timeStep = step;
+    auto tsVar = dataStuff->io.InquireVariable<int>("tindex");
+    if (tsVar)
+      dataStuff->engine.Get(tsVar, &timeStep, adios2::Mode::Sync);
 
     vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_arr, dAs_arr;
     ReadTurbData(dataStuff, args, As_arr, dAs_arr);

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!-- XGC Config XML file for ADIOS2 -->
+<adios-config>
+  <io name="mesh">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
+
+  <io name="equil">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
+
+  <io name="bfield">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
+
+  <io name="coeff">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
+
+  <io name="3d">
+    <engine type="BP4">
+      <parameter key="OpenTimeoutSecs" value="2100"/>
+    </engine>
+  </io>
+</adios-config>
