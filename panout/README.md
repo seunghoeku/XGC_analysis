@@ -5,7 +5,15 @@ Read xgc.3d.bp and split the stream (or file) in a round-robin fashion.
 Below is an example to run on Summit.
 
 ```
-module load gcc/9.1.0
+module purge
+ml DefApps
+ml gcc
+
+module load cmake/3.20.2
+module load forge
+module load boost
+module load python/3.8-anaconda3
+module load libfabric/1.12.1-sysrdma
 
 module use -a /gpfs/alpine/phy122/world-shared/lib/install/summit/modulefiles
 module load adios2/devel
