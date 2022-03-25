@@ -31,4 +31,12 @@
         <!-- Output of diffusion analysis code -->
         <engine type="FileStream"></engine>
     </io>
+    <io name="diagnosis.mesh">
+        <!-- Output of diffusion analysis code -->
+        <engine type="FileStream"></engine>
+    </io>
+    <io name="output.units">
+        <!-- Output of diffusion analysis code -->
+        <engine type="FileStream"></engine>
+    </io>
 </adios-config>
