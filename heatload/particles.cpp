@@ -14,16 +14,15 @@
 #define GET(X, i, j) X[i * NPHASE + j]
 
 // esc_step is 1-based index. zero means no data in the DB
-Particle search(t_ParticleDB &db, int timestep, long long gid)
+Particle& search(t_ParticleDB &db, int timestep, long long gid)
 {
+    static Particle none;
     if (db.count(timestep))
     {
         return db[timestep][gid];
     }
     else
     {
-        struct Particle none;
-        none.gid = 0;
         return none;
     }
     // return db[timestep][gid];
@@ -351,7 +350,7 @@ void ptlmap_sync(t_ParticlesList &pmap, MPI_Comm comm)
 
 void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm)
 {
-    TIMER_START("PTLS_SHIFT");    
+    TIMER_START("PTLS_SHIFT");
     assert(ptls_from_right.empty());
 
     int rank, comm_size;

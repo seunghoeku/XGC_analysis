@@ -19,7 +19,6 @@
 #include "cam_timers.hpp"
 
 extern Simulation sml;
-extern Particle search(t_ParticleDB &db, int timestep, long long gid);
 
 static long int _progress_step_current = 0;
 void progress_step(long int total)
@@ -40,23 +39,23 @@ void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db)
     LOG << "Heatload calc div particle size " << div.size();
     // reset progress bar
     _progress_step_current = 0;
-    // std::time_t start = std::time(nullptr);
 #pragma omp parallel for default(none) shared(sml, div, db, sp, std::cerr)
     for (int i = 0; i < div.size(); i++)
     {
+        /* This is very expensive...
         if (true)
         {
 #pragma omp critical
             {
                 progress_step(div.size());
             }
-        }
+        }*/
 
         struct Particle p = div[i]; // particle that hit divertor
         double en = sml.c2_2m[sp.isp] * p.rho * p.rho * p.B * p.B + p.mu * p.B;
         double wp = p.dw * p.w0;
 
-        struct Particle p_esc = search(db, p.esc_step, p.gid); // particle info when it escaped.
+        struct Particle& p_esc = search(db, p.esc_step, p.gid); // particle info when it escaped.
         // printf("%lld %d\n", p.gid, p.esc_step);
         if (p_esc.gid > 0)
         {
