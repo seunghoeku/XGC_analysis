@@ -29,6 +29,7 @@ struct Particle
     long long gid;
     int flag;
     int esc_step;
+    Particle() : gid(0) {}
 };
 
 typedef std::vector<struct Particle> Particles;
@@ -37,7 +38,7 @@ typedef std::unordered_map<long long, struct Particle> t_ParticlesList;
 typedef std::map<int, t_ParticlesList> t_ParticleDB;
 
 void set_nbin(uint64_t nbin);
-Particle search(t_ParticleDB &db, int timestep, long long int gid);
+Particle& search(t_ParticleDB &db, int timestep, long long int gid);
 void add(t_ParticlesList &pmap, Particle ptl);
 void ptldb_save(t_ParticleDB &db, std::string filename, MPI_Comm comm);
 void ptldb_load(t_ParticleDB &db, std::string filename, MPI_Comm comm);
