@@ -143,8 +143,8 @@ SML_DPOT_TE_LIMIT = 5.
 ptl_mass_au=2D0         ! 1 for hydrogen, 2 for deutron
 ptl_e_mass_au=5.454D-4  ! Electron mass relative to proton mass
 ptl_charge_eu=1D0       ! ion charge
-ptl_num=700000           ! number of particles per thread
-ptl_maxnum=1300000       ! max. number of ptl per thread
+ptl_num=1400000           ! number of particles per thread
+ptl_maxnum=2700000       ! max. number of ptl per thread
 /
 
 &f0_param
