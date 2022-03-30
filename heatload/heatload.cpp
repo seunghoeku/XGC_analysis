@@ -20,12 +20,12 @@ int heatload_comm_rank;
 void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool read_restart)
 {
     TIMER_START("INIT");
-    // init simulation parameters
-    init(ad, xgcdir);
-
     // init adios
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.escaped_ptls.bp");
     load_init(ad, fname.string(), comm);
+
+    // init simulation parameters
+    init(ad, xgcdir);
 
     heatload_comm = comm;
     MPI_Comm_rank(heatload_comm, &heatload_comm_rank);
