@@ -129,87 +129,126 @@ adios2::StepStatus load_data(Particles &idiv, Particles &ediv, t_ParticlesList &
         var_ephase.SetSelection({{0, 0}, {var_ephase.Shape()[0], var_ephase.Shape()[1]}});
 
         int adios_step = reader.CurrentStep();
-        auto block_list_igid = reader.BlocksInfo(var_igid, adios_step);
-        auto slice = split_vector(block_list_igid, reader_comm_size, reader_comm_rank);
-        int offset = slice.first;
-        int nblock = slice.second;
-        printf("%d: offset,nblock= %d %d\n", reader_comm_rank, offset, nblock);
 
-        // Read table block by block
-        for (int i = offset; i < offset + nblock; i++)
+        // ions
         {
-            std::vector<long> _igid;
-            std::vector<long> _egid;
-            std::vector<int> _iflag;
-            std::vector<int> _eflag;
-            std::vector<int> _istep;
-            std::vector<int> _estep;
-            std::vector<float> _idw;
-            std::vector<float> _edw;
-            std::vector<float> _iphase;
-            std::vector<float> _ephase;
+            auto block_list_igid = reader.BlocksInfo(var_igid, adios_step);
+            auto slice = split_vector(block_list_igid, reader_comm_size, reader_comm_rank);
+            int offset = slice.first;
+            int nblock = slice.second;
+            printf("%d: ions offset,nblock= %d %d\n", reader_comm_rank, offset, nblock);
 
-            auto block = block_list_igid[i];
-            int ncount = 1;
-            for (auto &d : block.Count)
+            // Read table block by block
+            for (int i = offset; i < offset + nblock; i++)
             {
-                ncount *= d;
-            }
+                std::vector<long> _igid;
+                std::vector<int> _iflag;
+                std::vector<int> _istep;
+                std::vector<float> _idw;
+                std::vector<float> _iphase;
 
-            if (ncount > 0)
-            {
-                var_igid.SetBlockSelection(block.BlockID);
-                var_egid.SetBlockSelection(block.BlockID);
-                var_iflag.SetBlockSelection(block.BlockID);
-                var_eflag.SetBlockSelection(block.BlockID);
-                var_istep.SetBlockSelection(block.BlockID);
-                var_estep.SetBlockSelection(block.BlockID);
-                var_idw.SetBlockSelection(block.BlockID);
-                var_edw.SetBlockSelection(block.BlockID);
-                var_iphase.SetBlockSelection(block.BlockID);
-                var_ephase.SetBlockSelection(block.BlockID);
+                auto block = block_list_igid[i];
+                int ncount = 1;
+                for (auto &d : block.Count)
+                {
+                    ncount *= d;
+                }
 
-                reader.Get<long>(var_igid, _igid);
-                reader.Get<long>(var_egid, _egid);
-                reader.Get<int>(var_iflag, _iflag);
-                reader.Get<int>(var_eflag, _eflag);
-                reader.Get<int>(var_istep, _istep);
-                reader.Get<int>(var_estep, _estep);
-                reader.Get<float>(var_idw, _idw);
-                reader.Get<float>(var_edw, _edw);
-                reader.Get<float>(var_iphase, _iphase);
-                reader.Get<float>(var_ephase, _ephase);
-                reader.Get<int>("timestep", &timestep);
-                TIMER_START("ADIOS_PERFORM_GETS");
-                reader.PerformGets();
-                TIMER_STOP("ADIOS_PERFORM_GETS");
+                if (ncount > 0)
+                {
+                    var_igid.SetBlockSelection(block.BlockID);
+                    var_iflag.SetBlockSelection(block.BlockID);
+                    var_istep.SetBlockSelection(block.BlockID);
+                    var_idw.SetBlockSelection(block.BlockID);
+                    var_iphase.SetBlockSelection(block.BlockID);
 
-                TIMER_START("_ADIOS_DUP_WRITE");
-                copy_write(dup_io, dup_writer, var_igid, _igid);
-                copy_write(dup_io, dup_writer, var_egid, _egid);
-                copy_write(dup_io, dup_writer, var_iflag, _iflag);
-                copy_write(dup_io, dup_writer, var_eflag, _eflag);
-                copy_write(dup_io, dup_writer, var_istep, _istep);
-                copy_write(dup_io, dup_writer, var_estep, _estep);
-                copy_write(dup_io, dup_writer, var_idw, _idw);
-                copy_write(dup_io, dup_writer, var_edw, _edw);
-                copy_write(dup_io, dup_writer, var_iphase, _iphase);
-                copy_write(dup_io, dup_writer, var_ephase, _ephase);
-                dup_writer.Put<int>("timestep", timestep);
-                TIMER_STOP("_ADIOS_DUP_WRITE");
+                    reader.Get<long>(var_igid, _igid);
+                    reader.Get<int>(var_iflag, _iflag);
+                    reader.Get<int>(var_istep, _istep);
+                    reader.Get<float>(var_idw, _idw);
+                    reader.Get<float>(var_iphase, _iphase);
+                    reader.Get<int>("timestep", &timestep);
+                    TIMER_START("ADIOS_PERFORM_GETS");
+                    reader.PerformGets();
+                    TIMER_STOP("ADIOS_PERFORM_GETS");
 
-                igid.insert(igid.end(), _igid.begin(), _igid.end());
-                egid.insert(egid.end(), _egid.begin(), _egid.end());
-                iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
-                eflag.insert(eflag.end(), _eflag.begin(), _eflag.end());
-                istep.insert(istep.end(), _istep.begin(), _istep.end());
-                estep.insert(estep.end(), _estep.begin(), _estep.end());
-                idw.insert(idw.end(), _idw.begin(), _idw.end());
-                edw.insert(edw.end(), _edw.begin(), _edw.end());
-                iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
-                ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
+                    TIMER_START("_ADIOS_DUP_WRITE");
+                    copy_write(dup_io, dup_writer, var_igid, _igid);
+                    copy_write(dup_io, dup_writer, var_iflag, _iflag);
+                    copy_write(dup_io, dup_writer, var_istep, _istep);
+                    copy_write(dup_io, dup_writer, var_idw, _idw);
+                    copy_write(dup_io, dup_writer, var_iphase, _iphase);
+                    dup_writer.Put<int>("timestep", timestep);
+                    TIMER_STOP("_ADIOS_DUP_WRITE");
+
+                    igid.insert(igid.end(), _igid.begin(), _igid.end());
+                    iflag.insert(iflag.end(), _iflag.begin(), _iflag.end());
+                    istep.insert(istep.end(), _istep.begin(), _istep.end());
+                    idw.insert(idw.end(), _idw.begin(), _idw.end());
+                    iphase.insert(iphase.end(), _iphase.begin(), _iphase.end());
+                }
             }
         }
+
+        // electrons
+        {
+            auto block_list_egid = reader.BlocksInfo(var_egid, adios_step);
+            auto slice = split_vector(block_list_egid, reader_comm_size, reader_comm_rank);
+            int offset = slice.first;
+            int nblock = slice.second;
+            printf("%d: electrons offset,nblock= %d %d\n", reader_comm_rank, offset, nblock);
+            // Read table block by block
+            for (int i = offset; i < offset + nblock; i++)
+            {
+                std::vector<long> _egid;
+                std::vector<int> _eflag;
+                std::vector<int> _estep;
+                std::vector<float> _edw;
+                std::vector<float> _ephase;
+
+                auto block = block_list_egid[i];
+                int ncount = 1;
+                for (auto &d : block.Count)
+                {
+                    ncount *= d;
+                }
+
+                if (ncount > 0)
+                {
+                    var_egid.SetBlockSelection(block.BlockID);
+                    var_eflag.SetBlockSelection(block.BlockID);
+                    var_estep.SetBlockSelection(block.BlockID);
+                    var_edw.SetBlockSelection(block.BlockID);
+                    var_ephase.SetBlockSelection(block.BlockID);
+
+                    reader.Get<long>(var_egid, _egid);
+                    reader.Get<int>(var_eflag, _eflag);
+                    reader.Get<int>(var_estep, _estep);
+                    reader.Get<float>(var_edw, _edw);
+                    reader.Get<float>(var_ephase, _ephase);
+                    reader.Get<int>("timestep", &timestep);
+                    TIMER_START("ADIOS_PERFORM_GETS");
+                    reader.PerformGets();
+                    TIMER_STOP("ADIOS_PERFORM_GETS");
+
+                    TIMER_START("_ADIOS_DUP_WRITE");
+                    copy_write(dup_io, dup_writer, var_egid, _egid);
+                    copy_write(dup_io, dup_writer, var_eflag, _eflag);
+                    copy_write(dup_io, dup_writer, var_estep, _estep);
+                    copy_write(dup_io, dup_writer, var_edw, _edw);
+                    copy_write(dup_io, dup_writer, var_ephase, _ephase);
+                    dup_writer.Put<int>("timestep", timestep);
+                    TIMER_STOP("_ADIOS_DUP_WRITE");
+
+                    egid.insert(egid.end(), _egid.begin(), _egid.end());
+                    eflag.insert(eflag.end(), _eflag.begin(), _eflag.end());
+                    estep.insert(estep.end(), _estep.begin(), _estep.end());
+                    edw.insert(edw.end(), _edw.begin(), _edw.end());
+                    ephase.insert(ephase.end(), _ephase.begin(), _ephase.end());
+                }
+            }
+        }
+
         reader.EndStep();
         dup_writer.EndStep();
     }
