@@ -7,6 +7,9 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
+#include <chrono>
+#include <thread>
+
 #define LOG BOOST_LOG_TRIVIAL(debug)
 
 extern Simulation sml;
@@ -20,6 +23,7 @@ void init(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.units.bp");
     LOG << "Loading: " << fname;
     reader = reader_io.Open(fname.string(), adios2::Mode::Read, comm);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     reader.BeginStep();
 
     double sml_e_charge, sml_prot_mass;
