@@ -11,7 +11,7 @@
 
 extern Simulation sml;
 
-void init(adios2::ADIOS *ad, std::string xgcdir)
+void init(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 {
     adios2::Engine reader;
     adios2::IO reader_io;
@@ -19,7 +19,7 @@ void init(adios2::ADIOS *ad, std::string xgcdir)
     reader_io = ad->DeclareIO("output.units"); // same IO name as in XGC
     boost::filesystem::path fname = boost::filesystem::path(xgcdir) / boost::filesystem::path("xgc.units.bp");
     LOG << "Loading: " << fname;
-    reader = reader_io.Open(fname.string(), adios2::Mode::Read, MPI_COMM_SELF);
+    reader = reader_io.Open(fname.string(), adios2::Mode::Read, comm);
     reader.BeginStep();
 
     double sml_e_charge, sml_prot_mass;

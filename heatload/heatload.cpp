@@ -5,7 +5,7 @@
 
 #include "cam_timers.hpp"
 
-void init(adios2::ADIOS *ad, std::string xgcdir);                         // initialization
+void init(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm);                         // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
@@ -25,7 +25,7 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool re
     load_init(ad, fname.string(), comm);
 
     // init simulation parameters
-    init(ad, xgcdir);
+    init(ad, xgcdir, comm);
 
     heatload_comm = comm;
     MPI_Comm_rank(heatload_comm, &heatload_comm_rank);
@@ -39,10 +39,10 @@ void heatload_init(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir, bool re
     TIMER_STOP("INIT");
 }
 
-void heatload_init2(adios2::ADIOS *ad, std::string xgcdir)
+void heatload_init2(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
 {
     // init simulation parameters
-    init(ad, xgcdir);
+    init(ad, xgcdir, comm);
 
     // init adios
     // load_init(ad, "xgc.escaped_ptls.bp");

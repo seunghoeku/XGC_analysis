@@ -25,7 +25,7 @@ Heatload::Heatload(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm)
 
     this->istep = 0;
 
-    heatload_init2(ad, xgcdir);
+    heatload_init2(ad, comm, xgcdir);
 
     this->io = ad->DeclareIO("escaped_ptls"); // same IO name as in XGC
     boost::filesystem::path fname =
