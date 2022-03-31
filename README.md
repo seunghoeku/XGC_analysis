@@ -13,7 +13,7 @@ module load python/3.8-anaconda3
 module load libfabric/1.12.1-sysrdma
 
 ADIOS_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/adios2/devel/gcc9.1.0
-CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers-perfstubs-nompi/gcc9.3.0
+CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers-perfstubs-mpi/gcc9.3.0
 
 CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH="$ADIOS_DIR;$CAMTIMER_DIR" ..
 
