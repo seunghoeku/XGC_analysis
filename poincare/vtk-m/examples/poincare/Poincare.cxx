@@ -69,6 +69,8 @@ std::map<std::string, adiosS*> adiosStuff;
 #include "ComputeBCell.h"
 #endif
 
+#include "perfstubs_api/timer.h"
+
 template <typename T>
 std::ostream& operator<< (std::ostream& out, const std::vector<T>& v)
 {
@@ -224,6 +226,7 @@ ReadScalar(adiosS* stuff,
            bool add3D=false,
            bool addExtra=false)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   if (fileName.empty())
     fileName = vname;
 
@@ -261,6 +264,7 @@ ReadB(adiosS* stuff,
       XGCParameters& xgcParams,
       vtkm::cont::DataSet& ds)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   std::string fileName = "/node_data[0]/values";
 
   auto Bvar = stuff->io.InquireVariable<double>(fileName);
@@ -284,6 +288,7 @@ ReadPsiInterp(adiosS* eqStuff,
               XGCParameters& xgcParams,
               std::map<std::string, std::vector<std::string>>& args)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   eqStuff->engine.Get(eqStuff->io.InquireVariable<int>("eq_mr"), &xgcParams.eq_mr, adios2::Mode::Sync);
   eqStuff->engine.Get(eqStuff->io.InquireVariable<int>("eq_mz"), &xgcParams.eq_mz, adios2::Mode::Sync);
   eqStuff->engine.Get(eqStuff->io.InquireVariable<double>("eq_axis_r"), &xgcParams.eq_axis_r, adios2::Mode::Sync);
@@ -460,6 +465,7 @@ ReadPsiInterp(adiosS* eqStuff,
 vtkm::cont::DataSet
 ReadMesh(adiosS* meshStuff, XGCParameters& xgcParams)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   std::vector<double> rz;
   std::vector<int> conn, nextnode;
   meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("/coordinates/values"), rz, adios2::Mode::Sync);
@@ -498,6 +504,7 @@ ReadMesh(adiosS* meshStuff, XGCParameters& xgcParams)
 vtkm::cont::DataSet
 ReadMesh3D(adiosS* meshStuff, bool addExtra, XGCParameters& xgcParams)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   std::vector<double> rz;
   std::vector<int> conn, nextnode;
   meshStuff->engine.Get(meshStuff->io.InquireVariable<double>("/coordinates/values"), rz, adios2::Mode::Sync);
@@ -579,6 +586,7 @@ SaveOutput(const std::vector<std::vector<vtkm::Vec3f>>& traces,
            const std::string& outFileName = "",
            int timeStep=0)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   std::string tracesNm, puncNm, puncThetaPsiNm, adiosNm;
   if (outFileName.empty())
   {
@@ -707,6 +715,7 @@ Poincare(const vtkm::cont::DataSet& ds,
          std::map<std::string, std::vector<std::string>>& args,
          int timeStep=0)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   vtkm::cont::ArrayHandle<vtkm::FloatDefault> As_ff, coeff_1D, coeff_2D, psi;
   vtkm::cont::ArrayHandle<vtkm::Vec3f> B_rzp, B_Norm_rzp, dAs_ff_rzp;
   //ds.GetField("As_phi_ff").GetData().AsArrayHandle(As_ff);
@@ -770,6 +779,7 @@ Poincare(const vtkm::cont::DataSet& ds,
 vtkm::cont::ArrayHandle<vtkm::FloatDefault>
 CalcAs(const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& As, XGCParameters& xgcParams)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
 //  vtkm::cont::ArrayHandle<vtkm::FloatDefault> As;
 
 //  ds.GetField("As_phi_ff").GetData().AsArrayHandle(As);
@@ -833,6 +843,7 @@ CalcAs(const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& As, XGCParameters& xgc
 vtkm::cont::ArrayHandle<vtkm::Vec3f>
 Calc_dAs(const vtkm::cont::ArrayHandle<vtkm::FloatDefault>& dAsAH, XGCParameters& xgcParams)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   //Assumed that dAs_phi_ff is R,Z,Phi
   //vtkm::cont::ArrayHandle<vtkm::FloatDefault> dAsAH;
   //ds.GetField("dAs_phi_ff").GetData().AsArrayHandle(dAsAH);
@@ -937,6 +948,7 @@ UpdateField(vtkm::cont::DataSet& ds,
             const std::string& vName,
             vtkm::cont::ArrayHandle<T> &var)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   if (ds.HasField(vName))
   {
     vtkm::cont::ArrayHandle<T> oldVar;
@@ -956,6 +968,7 @@ ReadTurbData(adiosS* turbStuff,
              vtkm::cont::ArrayHandle<vtkm::FloatDefault>& As_arr,
              vtkm::cont::ArrayHandle<vtkm::FloatDefault>& dAs_arr)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   auto asV = turbStuff->io.InquireVariable<double>("As_phi_ff");
   auto dAsV = turbStuff->io.InquireVariable<double>("dAs_phi_ff");
 
@@ -987,6 +1000,7 @@ ReadStaticData(std::map<std::string, std::vector<std::string>>& args,
                XGCParameters& xgcParams,
                const std::string& coeffFile)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   if (adios != nullptr)
   {
     std::cerr<<"Re-reading static data!!!"<<std::endl;
@@ -1053,6 +1067,7 @@ ReadStaticData(std::map<std::string, std::vector<std::string>>& args,
 vtkm::cont::DataSet
 ReadDataSet_ORIG(std::map<std::string, std::vector<std::string>>& args, XGCParameters& xgcParams)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   auto ds = ReadStaticData(args, xgcParams, "xgc.bfield-all.bp");
 
   //Get the data...
@@ -1087,6 +1102,7 @@ ReadDataSet_ORIG(std::map<std::string, std::vector<std::string>>& args, XGCParam
 vtkm::cont::DataSet
 ReadDataSet(std::map<std::string, std::vector<std::string>>& args, XGCParameters& xgcParams)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   vtkm::cont::DataSet ds;
 
   if (args.find("--test") != args.end())
@@ -1703,6 +1719,7 @@ GenerateSeeds(const vtkm::cont::DataSet& ds,
 void
 StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   XGCParameters xgcParams;
 
   std::map<std::string, std::string> adiosArgs;
@@ -1764,7 +1781,7 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
 
     std::cout<<"Dump to "<<outputFile<<std::endl;
     Poincare(ds, xgcParams, seedsCopy, args, timeStep);
-
+    PERFSTUBS_DUMP_DATA();
     step++;
   }
 }
@@ -1772,6 +1789,8 @@ StreamingPoincare(std::map<std::string, std::vector<std::string>>& args)
 int
 main(int argc, char** argv)
 {
+  PERFSTUBS_INITIALIZE();
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   MPI_Init(&argc, &argv);
   int rank, numRanks;
   MPI_Comm_size(MPI_COMM_WORLD, &numRanks);
@@ -1897,6 +1916,8 @@ main(int argc, char** argv)
   for (auto& i : adiosStuff)
     delete i.second;
 
+  PERFSTUBS_FINALIZE();
+  MPI_Finalize();
   return 0;
 }
 

@@ -7,7 +7,10 @@ module load git-lfs
 module load gcc/9.1.0
 module load cuda/11.0.3
 module load cmake/3.21.3
-module load adios2
+module load libfabric/1.12.1-sysrdma  # needed by adios
+
+# Use the ADIOS for XGC
+export ADIOS_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/adios2/devel/gcc9.1.0
 
 mkdir build
 cd build
@@ -23,7 +26,7 @@ cmake \
  -DVTKm_ENABLE_CUDA=ON \
  -DVTKm_ENABLE_OPENMP=ON \
  -DVTKm_ENABLE_MPI=OFF \
- -DADIOS2_DIR=/sw/summit/spack-envs/base/opt/linux-rhel8-ppc64le/gcc-7.5.0/adios2-2.7.1-qtvhwjxzdlbro3zv7zytmxm72fc3a5d5/lib64/cmake/adios2 \
+ -DADIOS2_DIR=${ADIOS_DIR}/lib64/cmake/adios2 \
  -DVTKm_USE_DOUBLE_PRECISION=ON \
 ../vtk-m
 
@@ -51,6 +54,6 @@ Running on whoopingcough:
 
 ./examples/poincare/Poincare --dir /media/dpn/disk2TB/proj/vtkm/XGCLocator/data/XGC_GB/su458_ITER_data --useHighOrder --turbulence 1 --openmp  --output OUT --numPunc 100 --gpuParams 256 128 --stepSize 0.01 --dumpSeeds --parseAdios xgc.particle.0000000.init.bp 1 |tee out
 
-
-
 ```
+
+Note: poincare has been updated to include the perfstubs timers.  These timers will link automatically with TAU when the analysis is run with tau_exec.
