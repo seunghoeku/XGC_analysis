@@ -34,6 +34,8 @@ void init_log(int rank)
     boost::log::add_console_log(std::cout, boost::log::keywords::format = fmt, boost::log::keywords::auto_flush = true);
 
     boost::log::add_common_attributes();
+    boost::log::core::get()->set_filter (
+        boost::log::trivial::severity >= boost::log::trivial::info);
 }
 
 int main(int argc, char *argv[])
@@ -107,7 +109,9 @@ int main(int argc, char *argv[])
         else if (ret == -1)
             // no more data
             break;
-
+#ifdef CAM_TIMERS
+        TIMER_DUMP();
+#endif
         istep++;
         if ((maxstep > 0) && (istep > maxstep))
             break;

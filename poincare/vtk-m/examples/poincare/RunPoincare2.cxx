@@ -5,6 +5,7 @@
 #include "RunPoincare2.h"
 #include "Poincare2.h"
 
+#include "perfstubs_api/timer.h"
 
 void
 RunPoincare2(const vtkm::cont::DataSet& ds,
@@ -22,6 +23,7 @@ RunPoincare2(const vtkm::cont::DataSet& ds,
              vtkm::cont::ArrayHandle<vtkm::Vec2f>& outTP,
              vtkm::cont::ArrayHandle<vtkm::Id>& outID)
 {
+  PERFSTUBS_SCOPED_TIMER_FUNC();
   //Get all the arguments...
   vtkm::FloatDefault stepSize = std::atof(args["--stepSize"][0].c_str());
   vtkm::Id numPunc = std::atoi(args["--numPunc"][0].c_str());

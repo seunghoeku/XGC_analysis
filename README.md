@@ -13,7 +13,7 @@ module load python/3.8-anaconda3
 module load libfabric/1.12.1-sysrdma
 
 ADIOS_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/adios2/devel/gcc9.1.0
-CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers/gcc9.1.0
+CAMTIMER_DIR=/gpfs/alpine/world-shared/phy122/lib/install/summit/camtimers-perfstubs-nompi/gcc9.3.0
 
 CC=gcc CXX=g++ cmake -DCMAKE_PREFIX_PATH="$ADIOS_DIR;$CAMTIMER_DIR" ..
 
@@ -109,10 +109,26 @@ jsrun -n $((JOBSIZE*NR)) python adios2-panout.py --npanout=6 $XGCDIR/xgc.3d.bp x
 echo "Done."
 
 ```
+# Run with TAU:
+```
+export PATH=/gpfs/alpine/proj-shared/fus123/khuck/XGC_analysis/tau/tau2/ibm64linux/bin:$PATH
+module unload darshan-runtime
+export TAU_METRICS="TIME,PAPI_FP_OPS,PAPI_TOT_INS"
+
+echo "Run diffusion"
+jsrun -n $((JOBSIZE*NR)) -a1 -c1 -g0 -r$NR -brs /usr/bin/stdbuf -oL -eL \
+tau_exec -T xgc_analysis_mpi -monitoring -adios2 \
+./diffusion/diffusion -w $XGCDIR 2>&1 | tee run-diffusion-$JOBID.log
+
+echo "Run heatload"
+jsrun -n $((JOBSIZE*NR)) -a1 -c7 -g0 -r$NR -brs /usr/bin/stdbuf -oL -eL \
+tau_exec -T xgc_analysis_mpi -monitoring -adios2 \
+./heatload/heatload -w $XGCDIR -f 2>&1 | tee run-heatload-$JOBID.log
+```
 
 # Additional Input files for Gordon Bell
 located at
 ```
 /gpfs/alpine/world-shared/phy122/sku/GB_XGC_input
 ```
-sml_input_dir in 'input' should point this directory 
+sml_input_dir in 'input' should point this directory

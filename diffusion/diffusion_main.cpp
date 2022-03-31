@@ -110,7 +110,9 @@ int main(int argc, char *argv[])
             std::cout << "Input stream had errors. Exit loop" << std::endl;
             break;
         }
-
+#ifdef CAM_TIMERS
+        TIMER_DUMP();
+#endif
         istep++;
         if ((maxstep > 0) && (istep > maxstep))
             break;

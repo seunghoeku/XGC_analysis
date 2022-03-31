@@ -19,11 +19,13 @@ set(Poincare_srcs
  FindMaxR.cxx
  RunPoincare2.cxx
  EvalField.cxx
+ perfstubs_api/timer.c
  )
 
 add_executable(Poincare ${Poincare_srcs})
 
 target_link_libraries(Poincare PRIVATE vtkm_cont vtkm_worklet vtkm_io adios2::adios2)
+target_include_directories(Poincare PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 vtkm_add_target_information(Poincare
                             DROP_UNUSED_SYMBOLS MODIFY_CUDA_FLAGS
