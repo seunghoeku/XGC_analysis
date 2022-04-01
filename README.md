@@ -35,7 +35,7 @@ Allowed options:
   -f [ --freshstart ]       fresh start (no restart)
   -i [ --ion_only ]         Ion only
 
-$ python ../panout/adios2-panout.py -h
+$ python ./panout/adios2-panout.py -h
 usage: adios2-panout.py [-h] [--outengine OUTENGINE] [--var VAR [VAR ...]] [--decomposition DECOMPOSITION [DECOMPOSITION ...]] \
                              [--append] [--npanout NPANOUT] [--start START] [-s NSTEP] infile outfile
 
