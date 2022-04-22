@@ -50,7 +50,6 @@ void heatload_init2(adios2::ADIOS *ad, MPI_Comm comm, std::string xgcdir)
 
 int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 {
-    TIMER_START("STEP");
     Particles idiv;
     Particles ediv;
     t_ParticlesList iesc;
@@ -76,6 +75,7 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
         return -1;
     }
 
+    TIMER_START("STEP");
     LOG << ">>> Step: " << istep;
     LOG << "Num. of escaped ions: " << ptlmap_count(iesc);
     LOG << "Num. of escaped elec: " << ptlmap_count(eesc);
