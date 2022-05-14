@@ -116,14 +116,14 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
 
         heatload_calc(current_idiv, ion, iesc_db); // need to send DB
         // (2022/05) jyc: dump current_idiv
-        std::string fname = boost::str(boost::format("heatload_idiv.%05d.bp") % istep);
-        ptls_save(current_idiv, fname, heatload_comm);
+        // std::string fname = boost::str(boost::format("heatload_idiv.%05d.bp") % istep);
+        // ptls_save(current_idiv, fname, heatload_comm);
         if (!ion_only)
         {
             heatload_calc(current_ediv, elec, eesc_db);
             // (2022/05) jyc: dump current_idiv
-            std::string fname = boost::str(boost::format("heatload_ediv.%05d.bp") % istep);
-            ptls_save(current_ediv, fname, heatload_comm);
+            // std::string fname = boost::str(boost::format("heatload_ediv.%05d.bp") % istep);
+            // ptls_save(current_ediv, fname, heatload_comm);
         }
 
         iround++;
