@@ -49,6 +49,7 @@ void ptlmap_print(t_ParticlesList &pmap, std::string str);
 void ptldb_dump(t_ParticleDB &db, std::string str);
 void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm);
 void insert_or_append(t_ParticleDB &db, int timestep, t_ParticlesList &ptls);
+void ptls_save(Particles &ptls, std::string filename, MPI_Comm comm);
 
 //#include "particles.tpp"
 #endif

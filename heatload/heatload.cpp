@@ -1,11 +1,12 @@
 #include "heatload.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
 #include "cam_timers.hpp"
 
-void init(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm);                         // initialization
+void init(adios2::ADIOS *ad, std::string xgcdir, MPI_Comm comm);          // initialization
 void heatload_calc(const Particles &div, HeatLoad &sp, t_ParticleDB &db); // calculate heatload
 
 #define LOG BOOST_LOG_TRIVIAL(debug)
@@ -114,13 +115,15 @@ int heatload_step(adios2::ADIOS *ad, int istep, bool ion_only)
         LOG << "Num. of divertor elec: " << current_ediv.size();
 
         heatload_calc(current_idiv, ion, iesc_db); // need to send DB
-        // Debug
-        // ptldb_dump(iesc_db, "iesc_db");
-        // auto p = search(iesc_db, 0, 820040877);
-        // LOG << "Found? " << p.gid;
+        // (2022/05) jyc: dump current_idiv
+        std::string fname = boost::str(boost::format("heatload_idiv.%05d.bp") % istep);
+        ptls_save(current_idiv, fname, heatload_comm);
         if (!ion_only)
         {
             heatload_calc(current_ediv, elec, eesc_db);
+            // (2022/05) jyc: dump current_idiv
+            std::string fname = boost::str(boost::format("heatload_ediv.%05d.bp") % istep);
+            ptls_save(current_ediv, fname, heatload_comm);
         }
 
         iround++;

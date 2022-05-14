@@ -14,7 +14,7 @@
 #define GET(X, i, j) X[i * NPHASE + j]
 
 // esc_step is 1-based index. zero means no data in the DB
-Particle& search(t_ParticleDB &db, int timestep, long long gid)
+Particle &search(t_ParticleDB &db, int timestep, long long gid)
 {
     static Particle none;
     if (db.count(timestep))
@@ -378,4 +378,73 @@ void ptls_shift(Particles &ptls, Particles &ptls_from_right, MPI_Comm comm)
     MPI_Sendrecv(ptls.data(), ptls_nbytes, MPI_CHAR, left, tag_send, ptls_from_right.data(), ptls_from_right_nbytes,
                  MPI_CHAR, right, tag_recv, comm, &status);
     TIMER_STOP("PTLS_SHIFT");
+}
+
+void ptls_save(Particles &ptls, std::string filename, MPI_Comm comm)
+{
+    int rank, comm_size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &comm_size);
+
+    adios2::ADIOS ad;
+    adios2::IO io;
+    adios2::Engine writer;
+
+    io = ad.DeclareIO("ptls_dump");
+    io.DefineVariable<long>("gid", {0}, {0}, {0});
+    io.DefineVariable<int>("flag", {0}, {0}, {0});
+    io.DefineVariable<int>("step", {0}, {0}, {0});
+    io.DefineVariable<float>("dw", {0}, {0}, {0});
+    io.DefineVariable<float>("phase", {0, NPHASE}, {0, 0}, {0, NPHASE});
+    io.DefineVariable<int>("timestep");
+
+    LOG << "Writing: " << filename;
+    writer = io.Open(filename, adios2::Mode::Write, comm);
+
+    std::vector<long> gid;
+    std::vector<int> flag;
+    std::vector<int> step;
+    std::vector<float> dw;
+    std::vector<float> phase;
+
+    for (const Particle &p : ptls)
+    {
+
+        gid.push_back(p.gid);
+        flag.push_back(p.flag);
+        step.push_back(p.esc_step);
+        dw.push_back(p.dw);
+        phase.push_back(p.r);
+        phase.push_back(p.z);
+        phase.push_back(p.phi);
+        phase.push_back(p.rho);
+        phase.push_back(p.w1);
+        phase.push_back(p.w2);
+        phase.push_back(p.mu);
+        phase.push_back(p.w0);
+        phase.push_back(p.f0);
+        phase.push_back(p.psi);
+        phase.push_back(p.B);
+    }
+
+    long unsigned int nptl = ptls.size();
+    std::vector<long unsigned int> nptl_list(comm_size);
+    std::vector<long unsigned int> displacement_list(comm_size);
+    MPI_Allgather(&nptl, 1, MPI_LONG, nptl_list.data(), 1, MPI_LONG, comm);
+
+    long unsigned int ntotal = 0;
+    for (int i = 0; i < nptl_list.size(); i++)
+    {
+        displacement_list[i] = ntotal;
+        ntotal += nptl_list[i];
+    }
+
+    writer.BeginStep();
+    write1d(io, writer, "gid", gid, {ntotal, displacement_list[rank], nptl_list[rank]});
+    write1d(io, writer, "flag", flag, {ntotal, displacement_list[rank], nptl_list[rank]});
+    write1d(io, writer, "step", step, {ntotal, displacement_list[rank], nptl_list[rank]});
+    write1d(io, writer, "dw", dw, {ntotal, displacement_list[rank], nptl_list[rank]});
+    write2d(io, writer, "phase", phase, {ntotal, displacement_list[rank], nptl_list[rank]});
+    writer.EndStep();
+    writer.Close();
 }
