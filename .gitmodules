@@ -1,0 +1,4 @@
+[submodule "compression"]
+	path = compression
+	url = https://github.com/jychoi-hpc/sc22-xgc-compression.git
+	branch = dev-sc23
